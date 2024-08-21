@@ -27,7 +27,7 @@ const server = app.listen(PORT, () => {
 });
 
 const io = new Server(server, {
-  cors: { origin: "http://localhost:5173", credentials: true },
+  cors: { origin: "www.yashportfoliohub.site", credentials: true },
   cookie: true,
 });
 

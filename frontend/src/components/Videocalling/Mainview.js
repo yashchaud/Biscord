@@ -853,7 +853,7 @@ const Nav = styled.div`
 const MainDiv = styled.div`
   width: 95%;
   height: 45rem;
-  background-color: #000000;
+  flex-wrap: wrap;
   flex-direction: column;
   justify-content: center;
   align-items: center;

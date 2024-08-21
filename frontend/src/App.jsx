@@ -35,6 +35,7 @@ import { current } from "@reduxjs/toolkit";
 import debounce from "lodash.debounce";
 import { Button } from "@ui/button";
 import { useNavigate } from "react-router-dom";
+import Test from "./components/Test/Test";
 
 import { connectSocketNotification, getNotificationSocket } from "./socket";
 const App = () => {
@@ -178,6 +179,7 @@ const App = () => {
             <Route path="/@me" element={<Useronlinepage />} />
           )}
           <Route path="/@me/:userId" element={<Directsectionpage />} />
+          <Route path="/tests" element={<Test />} />
           {/* <Route path="/@mobileme" element={<Messages />} />
           <Route path="/@mobileme/:userId" element={<Usersection />} /> */}
         </Routes>

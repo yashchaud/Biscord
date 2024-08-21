@@ -7,7 +7,7 @@ const cors = require("cors");
 
 // Enable CORS for all routes
 const corsOptions = {
-  origin: "http://localhost:5173", // Specify the origin of your frontend application
+  origin: "www.yashportfoliohub.site", // Specify the origin of your frontend application
   credentials: true, // This allows cookies and credentials to be included in the requests
 };
 app.use(cors(corsOptions));
