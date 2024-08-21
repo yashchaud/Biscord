@@ -4,10 +4,16 @@ const https = require("https");
 var { Server } = require("socket.io");
 var Socketsetup = require("./socket");
 const fs = require("fs");
+const cors = require("cors");
 
 const ports = 3000;
 
 var port = normalizePort(ports || "3000");
+const corsOptions = {
+  origin: "https://www.yashportfoliohub.site", // Specify the origin of your frontend application
+  credentials: true, // This allows cookies and credentials to be included in the requests
+};
+app.use(cors(corsOptions));
 // app.set("port", port);
 
 // const privateKey = fs.readFileSync("./sslcert/key.pem", "utf8");
