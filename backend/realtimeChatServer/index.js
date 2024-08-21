@@ -33,7 +33,10 @@ const server = app.listen(port, () => {
 server.on("error", onError);
 server.on("listening", onListening);
 const io = new Server(server, {
-  cors: { origin: "www.yashportfoliohub.site", credentials: true },
+  cors: {
+    origin: ["https://www.yashportfoliohub.site", "https://biscord.site/"],
+    credentials: true,
+  },
   cookie: true,
 });
 
