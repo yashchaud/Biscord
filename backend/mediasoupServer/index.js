@@ -6,7 +6,7 @@ var Socketsetup = require("./socket");
 const fs = require("fs");
 const cors = require("cors");
 
-const ports = 3002;
+const ports = 3000;
 
 var port = normalizePort(ports || "3000");
 const corsOptions = {
