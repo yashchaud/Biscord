@@ -7,6 +7,7 @@ import { useDispatch } from "react-redux";
 import { setUserinfo } from "../../Redux/sessionSlice";
 import { useQueryClient } from "@tanstack/react-query";
 import { Toaster, toast } from "sonner";
+import { getSocket } from "../../socket";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -17,6 +18,7 @@ const Login = () => {
   const dispatch = useDispatch();
   const queryClient = useQueryClient();
   const [Currentwidth, setCurrentwidth] = useState(window.innerWidth);
+  const socket = getSocket();
 
   useEffect(() => {
     toast.message("You can Sign Up or use this test account ", {
@@ -72,10 +74,7 @@ const Login = () => {
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    // Handle login logic here
-    console.log("Email:", email);
-    console.log("Password:", password);
-    // You can replace the console.log with your actual login logic
+
     axios
       .post(
         "/api/users/user/login",
@@ -90,6 +89,7 @@ const Login = () => {
       .then(function (response) {
         console.log(response);
         dispatch(setUserinfo(response.data.user));
+
         toast.success("Login Successful, Welcome Back", {
           duration: 2000,
           style: {
@@ -111,6 +111,8 @@ const Login = () => {
 
         setEmail("");
         setPassword("");
+        socket.disconnect();
+        socket.connect();
       })
       .catch(function (error) {
         console.log(error);

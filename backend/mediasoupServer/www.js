@@ -12,66 +12,6 @@ const {
   pipeProducersBetweenRouters,
 } = require("./LogicalFunctions/Basicfunctions");
 
-// function getCpuInfo() {
-//   return os.cpus().map((cpu) => {
-//     const times = cpu.times;
-//     return {
-//       idle: times.idle,
-//       total: Object.keys(times).reduce((acc, key) => acc + times[key], 0),
-//     };
-//   });
-// }
-
-// function calculateCpuUsage(startMeasurements, endMeasurements) {
-//   return startMeasurements.map((start, i) => {
-//     const end = endMeasurements[i];
-//     const idleDiff = end.idle - start.idle;
-//     const totalDiff = end.total - start.total;
-//     const usagePercentage =
-//       totalDiff === 0 ? 0 : 100 * (1 - idleDiff / totalDiff);
-//     return Number(usagePercentage.toFixed(2));
-//   });
-// }
-
-// // Sample usage
-// let startMeasurements = getCpuInfo();
-
-setInterval(() => {
-  // let endMeasurements = getCpuInfo();
-  // let usagePercentages = calculateCpuUsage(startMeasurements, endMeasurements);
-  // console.log("CPU Usage (%):", usagePercentages);
-  // // Send this data to your broker here
-  // // e.g., sendCpuUsageData(usagePercentages);
-  // startMeasurements = endMeasurements; // Prepare for the next interval
-}, 1000); // Every second
-
-// function generatePrimes(n) {
-//   const primes = [];
-//   for (let num = 2; num <= n; num++) {
-//       let isPrime = true;
-//       for (let i = 2; i <= Math.sqrt(num); i++) {
-//           if (num % i === 0) {
-//               isPrime = false;
-//               break;
-//           }
-//       }
-//       if (isPrime) {
-//           primes.push(num);
-//       }
-//   }
-//   return primes;
-// }
-
-// const n = 100000; // Adjust the range as per your requirement
-// setInterval(() => {
-//     generatePrimes(n);
-//     generatePrimes(n);
-//     generatePrimes(n);
-//     generatePrimes(n);
-//     generatePrimes(n);
-
-// }, 100);
-
 module.exports = async function (io) {
   const roomQueue = new AwaitQueue();
 
@@ -107,7 +47,36 @@ module.exports = async function (io) {
       },
     },
   ];
+  // setInterval(async () => {
+  //   try {
+  //     // CPU Usage monitoring code...
+  //     for (const [workerIndex, workerData] of workermap.entries()) {
+  //       const { worker } = workerData;
+  //       const usage = await pidusage(worker.pid);
+  //       console.log(
+  //         `Worker ${workerIndex} - PID: ${worker.pid}, CPU: ${
+  //           usage.cpu
+  //         }%, Memory: ${usage.memory / 1024 / 1024} MB`
+  //       );
+  //     }
 
+  //     for (const [transportId, transportData] of transports.entries()) {
+  //       const { transport } = transportData;
+  //       if (transport && !transport.closed) {
+  //         const stats = await transport.getStats();
+  //         stats.forEach((stat) => {
+  //           console.log(
+  //             `Transport ${transportId} - Bandwidth: ${
+  //               stat.bytesSent / 1024 / 1024
+  //             } MB sent, ${stat.bytesReceived / 1024 / 1024} MB received`
+  //           );
+  //         });
+  //       }
+  //     }
+  //   } catch (error) {
+  //     console.error("Error in bandwidth monitoring:", error);
+  //   }
+  // }, 10000); // Every 10 seconds
   async function createWorkers() {
     const numCores = os.cpus().length;
 
@@ -181,6 +150,9 @@ module.exports = async function (io) {
       const sourceRouterindex = producerRouterMap.get(producerData.producer.id);
       const sourceRouter = workermap.get(sourceRouterindex).router;
       console.log("pipetoall ", sourceRouter);
+      if (alreadyPipedProducersforcheck.has(producerData.producer.id)) {
+        return;
+      }
       if (!sourceRouter) continue;
       let targetRouter;
       if (Currentindex === 1) {
@@ -232,6 +204,7 @@ module.exports = async function (io) {
 
   const informConsumers = (roomName, socketId, id, socket) => {
     console.log(`just joined, id ${id} ${roomName}, ${socketId}`);
+
     producers.forEach((producerData) => {
       if (
         producerData.socketId !== socketId &&
@@ -240,8 +213,8 @@ module.exports = async function (io) {
         if (peers.has(producerData.socketId)) {
           const producerSocket = peers.get(producerData.socketId).socket;
           console.log("Inform", producerData.producer.id, id);
-          socket.broadcast.emit("new-producer", {
-            producerId: producerData.producer.id,
+          socket.broadcast.to(roomName).emit("new-producer", {
+            producerId: id,
             targetRouterindex: 0,
           });
 
@@ -281,13 +254,13 @@ module.exports = async function (io) {
           }
           console.log("event is being triggered", pipeConsumer);
 
-          await io.emit("new-producer-piped", {
-            producerId: pipeConsumer,
+          await io.to(socket.roomName).emit("new-producer-piped", {
+            producerId: pipeConsumer.id,
             targetRouterindex: Currentindex,
           });
           Trakpiped.set(pipeConsumer, targetRouter);
 
-          alreadyPipedProducer.add(pipeConsumer);
+          alreadyPipedProducer.add(pipeConsumer.id);
         }
         return;
       } else {
@@ -325,12 +298,12 @@ module.exports = async function (io) {
       console.log("event is being triggered", pipeConsumer);
 
       await producerSocket.emit("new-producer-piped", {
-        producerId: pipeConsumer,
+        producerId: pipeConsumer.id,
         targetRouterindex: Currentindex,
       });
       Trakpiped.set(pipeConsumer, targetRouter);
 
-      alreadyPipedProducer.add(pipeConsumer);
+      alreadyPipedProducer.add(pipeConsumer.id);
 
       Roomfull = true;
     } catch (error) {
@@ -418,6 +391,8 @@ module.exports = async function (io) {
           isAdmin: false,
         },
       });
+      socket.roomName = roomName; // Add room name to the socket
+      socket.join(roomName); // Join the socket to the room
       let rpa = router1.rtpCapabilities;
       Remoteindex += 1;
       callback({
@@ -493,10 +468,6 @@ module.exports = async function (io) {
           }
         }),
         pipeExistingProducersToTargetRouter(socket)
-
-        // alreadyPipedProducer.forEach((producer) => {
-        //   producerList.push(producer);
-        // })
       );
 
       console.log(typeof producerList); // Logging the type of producerList
@@ -613,8 +584,6 @@ module.exports = async function (io) {
               rtpCapabilities,
               paused: true,
             });
-            const consumerStats = consumer.getStats();
-            console.log(consumerStats);
 
             socket.on(
               "new-screen-share-producer",
@@ -624,7 +593,7 @@ module.exports = async function (io) {
                 );
 
                 // Broadcast this producer ID to all other clients in the same room, except the sender
-                io.emit("new-screen-share", { producerId });
+                io.to(roomName).emit("new-screen-share", { producerId });
               }
             );
 
@@ -635,6 +604,7 @@ module.exports = async function (io) {
                   (consumerData) =>
                     consumerData.consumer.id === serverConsumerId
                 );
+                if (!consumer) return;
                 if (producerId) {
                   producers.forEach(async (producerData) => {
                     if (producerData.producer.id === producerId) {
@@ -642,9 +612,8 @@ module.exports = async function (io) {
                     }
                   });
                 }
-                if (!consumer) return;
 
-                await consumer.resume();
+                await consumer?.resume();
               }
             );
             socket.on(
@@ -730,13 +699,18 @@ module.exports = async function (io) {
 
     socket.on("disconnect", () => {
       console.log("peer disconnected");
-      consumers = removeItems(consumers, socket.id, "consumer");
-      producers = removeItems(producers, socket.id, "producer");
+      producers = producers.filter((p) => p.socketId !== socket.id);
+      consumers = consumers.filter((c) => c.socketId !== socket.id);
       transports = removeItems(transports, socket.id, "transport");
+      consumers
+        .filter((c) => c.socketId === socket.id)
+        .forEach((c) => {
+          c.consumer.close();
+        });
       console.log(Peerstrack);
       if (peers.get(socket.id)) {
         const roomName = peers.get(socket.id).roomName;
-
+        socket.leave(roomName);
         peers.delete(socket.id);
       }
     });

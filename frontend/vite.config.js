@@ -20,6 +20,14 @@ export default defineConfig({
     },
     react(),
   ],
+  build: {
+    /** If you set esmExternals to true, this plugins assumes that 
+      all external dependencies are ES modules */
+
+    commonjsOptions: {
+      esmExternals: true,
+    },
+  },
   optimizeDeps: {
     force: true,
     esbuildOptions: {
@@ -45,7 +53,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "https://www.yashportfoliohub.site",
+        target: "http://localhost:3000",
 
         changeOrigin: true,
       },

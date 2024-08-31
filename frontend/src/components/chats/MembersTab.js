@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Photo from "@/components/images/nike-just-do-it (2).png";
 import Profilephoto from "../userprofile/profilephoto";
 import KingSvg from "./KingSvg.svg";
 import axios from "axios";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams } from "react-router-dom";
+import { gsap } from "gsap";
+import { useGSAP } from "@gsap/react";
 
 const SvgKing = ({ w, d }) => {
   return (
@@ -29,6 +31,7 @@ const SvgKing = ({ w, d }) => {
 };
 
 const MembersTab = () => {
+  const container = useRef();
   const dispatch = useDispatch();
   const [members, setMembers] = useState([]);
   const { toggleMemberstab } = useSelector((state) => state.counterSlice);
@@ -47,8 +50,21 @@ const MembersTab = () => {
     FetchServerMembers();
   }, [channelId]);
 
+  useGSAP(
+    () => {
+      const animation = gsap.fromTo(
+        container.current,
+        { translateX: -10 },
+        { translateX: 0, ease: "Power2.out", duration: 0.3 }
+      );
+    },
+    { scope: container, dependencies: [] }
+  );
   return (
-    <div className="w-[18%] h-full flex flex-col justify-between p-2 bg-[#2b2d31] sticky top-0 z-[2222222222222222222222222]">
+    <div
+      ref={container}
+      className="w-[18%] h-full flex flex-col justify-between p-2 bg-[#2b2d31] sticky top-0 z-[2222222222222222222222222]"
+    >
       <div className="w-full h-full flex flex-col  items-center gap-2">
         <h1 className="w-[95%] text-[#b5bac1] text-sm mt-4 ml-2 mb-2">
           OFFLINE -

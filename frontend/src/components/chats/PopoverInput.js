@@ -6,6 +6,8 @@ import { PopoverAnchor } from "@radix-ui/react-popover";
 import styled from "styled-components";
 import search from "../images/search.svg";
 import cross from "../images/X.svg";
+import { gsap } from "gsap";
+import { useGSAP } from "@gsap/react";
 import {
   setFilters,
   setTextFilter,
@@ -42,6 +44,7 @@ const reducer = (state, action) => {
 };
 
 const PopoverInput = ({ users }) => {
+  const container = useRef();
   const { id, channelId, threadId } = useParams();
   const [state, dispatchLocal] = useReducer(reducer, initialState);
   const inputRef = useRef(null);
@@ -218,6 +221,17 @@ const PopoverInput = ({ users }) => {
 
     return text;
   };
+
+  useGSAP(
+    () => {
+      gsap.fromTo(
+        popoverRef.current,
+        { translateY: -110 },
+        { translateY: 0, ease: "Power2.out", duration: 1 }
+      );
+    },
+    { scope: popoverRef, dependencies: [] }
+  );
 
   return (
     <div>

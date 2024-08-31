@@ -69,8 +69,8 @@ const Dropdownchannelcover = () => {
     () => {
       const animation = gsap.fromTo(
         container.current,
-        { scale: 0.5, translateY: 0 },
-        { scale: 1, ease: "back.out(1.7)", duration: 0.5, translateY: 30 }
+        { translateY: -10 },
+        { translateY: 0, ease: "Power2.out", duration: 0.2 }
       );
     },
     { scope: container, dependencies: [] }
@@ -140,7 +140,7 @@ export default Dropdownchannelcover;
 const Cover = styled.div`
   width: 95%;
   position: absolute;
-  bottom: -6rem;
+  bottom: -10.2rem;
   left: 0.5rem;
   display: flex;
   background-color: #111214;
@@ -151,6 +151,7 @@ const Cover = styled.div`
   z-index: 2131232;
   gap: 0.3rem;
   border-radius: 0.4rem;
+
   .dropdowndiv {
     width: 100%;
     display: flex;

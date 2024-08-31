@@ -17,8 +17,10 @@ import { useParams } from "react-router-dom";
 import Leftarrow from "@images/leftarrow.svg";
 import { useSelector, useDispatch } from "react-redux";
 import { settogglesidebar } from "@/Redux/sessionSlice";
+import { Mic, MicOff, Video, VideoOff } from "lucide-react";
+import { Button } from "@ui/button";
 
-const socket = io("https://biscord.site/", { secure: true });
+const socket = io("http://localhost:3002", { secure: true });
 
 const Mainview = () => {
   const dispatch = useDispatch();
@@ -44,6 +46,8 @@ const Mainview = () => {
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [Disconnected, setDisconnected] = useState(false);
   const container = useRef();
+  const [isVideoPaused, setIsVideoPaused] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
 
   // Extract room name from URL parameters
   const { id, channelId } = useParams();
@@ -93,6 +97,13 @@ const Mainview = () => {
     isMounted.current = true;
 
     if (isMounted.current) {
+      socket.off("connect");
+      socket.off("connection-success");
+      socket.off("new-producer");
+      socket.off("new-screen-share");
+      socket.off("new-producer-piped");
+      socket.off("producer-closed");
+
       socket.on("connect", () => {
         console.log(`socket connected ${socket.id}`);
       });
@@ -156,6 +167,13 @@ const Mainview = () => {
           console.log(`Router RTP Capabilities... ${data.Currentindex}`);
           let rtpCapabilitiesa = data.Routers[data.Currentindex];
           await createDevice(rtpCapabilitiesa);
+          socket.emit("getProducers", (producerIds) => {
+            producerIds.forEach((id) => {
+              if (!Trackingconsumer.current.has(id)) {
+                signalNewConsumerTransport(id);
+              }
+            });
+          });
           let producerid = 1;
 
           socket.emit("getRouterindex", { producerid }, async (data) => {
@@ -682,7 +700,7 @@ const Mainview = () => {
     <>
       {!Disconnected ? (
         <Cover ref={container}>
-          <Nav className="ml-2 flex item-center justify-center gap-4">
+          <Nav className="ml-2 flex item-center justify-start gap-4">
             <img
               onClick={() => dispatch(settogglesidebar(true))}
               src={Leftarrow}
@@ -690,7 +708,7 @@ const Mainview = () => {
             />
             <h1 className="mb-4 ">General</h1>
           </Nav>
-          <MainDiv>
+          {/* <MainDiv>
             <div className="parent">
               <div className="Localvideo">
                 <video ref={localVideoRef} autoPlay muted playsInline></video>
@@ -709,7 +727,74 @@ const Mainview = () => {
                 />
               ))}
             </div>
-          </MainDiv>
+          </MainDiv> */}
+
+          <div className="flex-1 p-4 overflow-y-auto w-full">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 justify-items-center content-start ">
+              {/* <div className="Localvideo">
+                <video ref={localVideoRef} autoPlay muted playsInline></video>
+              </div> */}
+              <div className="aspect-video bg-[#2f3136] rounded-lg overflow-hidden relative w-full max-w-[450px] max-md:max-w-[300px]">
+                <video
+                  ref={localVideoRef}
+                  className="w-full h-full object-cover Video"
+                  muted={isMuted}
+                  autoPlay
+                  playsInline
+                >
+                  Your browser does not support the video tag.
+                </video>
+                <div
+                  className="VideoOverlay absolute top-0 left-0 w-full h-full bg-black bg-opacity-75 flex items-center justify-center"
+                  style={{
+                    display: isVideoPaused ? "flex" : "none",
+                    opacity: 0,
+                  }}
+                >
+                  <div className="text-white text-lg">Video Paused</div>
+                </div>
+                <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 px-2 py-1 rounded text-sm">
+                  User
+                </div>
+                <div className="absolute top-2 right-2 flex space-x-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full bg-black bg-opacity-50 hover:bg-opacity-75"
+                  >
+                    {isMuted ? (
+                      <MicOff className="h-4 w-4" />
+                    ) : (
+                      <Mic className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full bg-black bg-opacity-50 hover:bg-opacity-75"
+                  >
+                    {isVideoPaused ? (
+                      <VideoOff className="h-4 w-4" />
+                    ) : (
+                      <Video className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              {consumerTracks.map((trackData) => (
+                <Videocomponents
+                  key={trackData.id}
+                  producerId={trackData.producerId}
+                  serverConsumerId={trackData.serverConsumerId}
+                  track={trackData.consumer.track}
+                  kind={trackData.kind}
+                  consumerTransports={consumerTransports.current}
+                  socket={socket}
+                  Selftrack={Selftrack}
+                />
+              ))}
+            </div>
+          </div>
           <Bottomdiv
             iswebcam={iswebcam}
             isScreenSharing={isScreenSharing}
@@ -772,9 +857,11 @@ const Buttonrefresh = styled.div`
   }
 `;
 const Bottomdiv = styled.div`
-  position: absolute;
-  bottom: 1rem;
+  position: relative;
+  width: 100%;
+  min-height: 4.5rem;
   display: flex;
+  /* background-color: #2b2d31; */
   gap: 1rem;
   align-items: center;
   justify-content: center;
@@ -838,8 +925,10 @@ const Cover = styled.div`
   background-color: #000000;
 `;
 const Nav = styled.div`
-  position: absolute;
-  top: 0rem;
+  position: relative;
+  width: 100%;
+  min-height: 2rem;
+
   left: 1.2rem;
   h1 {
     color: white;
@@ -870,7 +959,7 @@ const MainDiv = styled.div`
     // Adjust the minmax as needed
     justify-items: center;
     align-items: center;
-
+    flex-wrap: wrap;
     gap: 8rem; // Adjust the gap as needed
     row-gap: 3rem;
     @media (max-height: 1024px) {

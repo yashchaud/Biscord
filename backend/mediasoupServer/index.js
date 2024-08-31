@@ -6,11 +6,11 @@ var Socketsetup = require("./socket");
 const fs = require("fs");
 const cors = require("cors");
 
-const ports = 3000;
+const ports = 3002;
 
 var port = normalizePort(ports || "3000");
 const corsOptions = {
-  origin: "https://www.yashportfoliohub.site", // Specify the origin of your frontend application
+  origin: "http://localhost:5173", // Specify the origin of your frontend application
   credentials: true, // This allows cookies and credentials to be included in the requests
 };
 app.use(cors(corsOptions));

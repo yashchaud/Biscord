@@ -8,6 +8,8 @@ import axios from "axios";
 import { Link } from "react-router-dom";
 import Profilephoto from "@/components/userprofile/profilephoto";
 import { useSelector } from "react-redux";
+import { ScrollArea } from "@ui/scroll-area";
+
 const Onlineuserlist = () => {
   const [users, setUsers] = useState([]);
   const [query, setQuery] = useState("");
@@ -58,40 +60,42 @@ const Onlineuserlist = () => {
         <p>-</p>
         <p>{filteredUsers.length}</p>
       </Textonline>
-      <Onlineuserswrapper>
-        {filteredUsers.map((user) => (
-          <React.Fragment key={user._id}>
-            <div className="Seperator"></div>
-            <Link
-              to={`/@me/${user._id}`}
-              key={user._id}
-              style={{ textDecoration: "none" }}
-            >
-              <Container key={user._id}>
-                <div className="Firstdivwrapper">
-                  <div className="w-8 h-8">
-                    <Profilephoto />
+      <ScrollArea className="w-full h-full">
+        <Onlineuserswrapper>
+          {filteredUsers.map((user) => (
+            <React.Fragment key={user._id}>
+              <div className="Seperator"></div>
+              <Link
+                to={`/@me/${user._id}`}
+                key={user._id}
+                style={{ textDecoration: "none" }}
+              >
+                <Container key={user._id}>
+                  <div className="Firstdivwrapper">
+                    <div className="w-8 h-8">
+                      <Profilephoto />
+                    </div>
+                    <div className="Statusdiv">
+                      <p className="name">{user.username}</p>
+                      <p className="status">
+                        {user.connected ? "Online" : "Offline"}
+                      </p>
+                    </div>
                   </div>
-                  <div className="Statusdiv">
-                    <p className="name">{user.username}</p>
-                    <p className="status">
-                      {user.connected ? "online" : "offline"}
-                    </p>
+                  <div className="Seconddivwrapper">
+                    <div className="Message">
+                      <img src={messageimg} alt="" />
+                    </div>
+                    <div className="settings">
+                      <img src={settings} alt="" />
+                    </div>
                   </div>
-                </div>
-                <div className="Seconddivwrapper">
-                  <div className="Message">
-                    <img src={messageimg} alt="" />
-                  </div>
-                  <div className="settings">
-                    <img src={settings} alt="" />
-                  </div>
-                </div>
-              </Container>
-            </Link>
-          </React.Fragment>
-        ))}
-      </Onlineuserswrapper>
+                </Container>
+              </Link>
+            </React.Fragment>
+          ))}
+        </Onlineuserswrapper>
+      </ScrollArea>
     </Cover>
   );
 };
@@ -193,7 +197,10 @@ const Textonline = styled.div`
 
 const Onlineuserswrapper = styled.div`
   display: flex;
+  height: 100%;
+  max-height: 66vh;
   flex-direction: column;
+  overflow-y: auto;
   gap: 0.5;
   @media (max-width: 1024px) {
     min-width: 93vw;

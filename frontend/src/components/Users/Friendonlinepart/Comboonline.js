@@ -24,7 +24,6 @@ export default Comboonline;
 const Cover = styled.div`
   width: 90vw;
   background-color: #313338;
-  overflow: hidden;
 
   @media (max-width: 1024px) {
     width: 100vw;

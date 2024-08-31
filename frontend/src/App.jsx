@@ -36,9 +36,15 @@ import debounce from "lodash.debounce";
 import { Button } from "@ui/button";
 import { useNavigate } from "react-router-dom";
 import Test from "./components/Test/Test";
+import Register from "./components/Test/Register";
+import InvitePage from "./components/InviteLink/InvitePage";
+import Editprofile from "./components/EditProfile/Editprofile";
 
 import { connectSocketNotification, getNotificationSocket } from "./socket";
+import Cookie from "js-cookie";
 const App = () => {
+  const user = Cookie.get("jwt");
+
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const showNotification = debounce((message) => {
@@ -126,7 +132,7 @@ const App = () => {
   //Notification logic
   useEffect(() => {
     connectSocket();
-    connectSocketNotification();
+    // connectSocketNotification();
     const notificationSocket = getNotificationSocket();
     notificationSocket.on(
       "new_notification",
@@ -182,6 +188,9 @@ const App = () => {
           <Route path="/tests" element={<Test />} />
           {/* <Route path="/@mobileme" element={<Messages />} />
           <Route path="/@mobileme/:userId" element={<Usersection />} /> */}
+          <Route path="/register" element={<Register />} />
+          <Route path="/invite" element={<InvitePage />} />.
+          <Route path="/editprofile" element={<Editprofile />} />
         </Routes>
 
         <Outlet />

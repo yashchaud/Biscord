@@ -44,9 +44,9 @@ const ChatNavbar = () => {
     axios.get(`/api/users/users/getusers`).then((response) => {
       setUser(response.data);
     });
-    axios.get(`/api/server/servers/${id}`).then((response) => {
-      setText(response.data.description);
-    });
+    // axios.get(`/api/server/servers/${id}`).then((response) => {
+    //   setText(response.data.channelDescription);
+    // });
   }, [channelId]);
 
   const handleTextClick = () => {
@@ -103,7 +103,7 @@ const ChatNavbar = () => {
             />
           ) : (
             <p onClick={handleTextClick} className="min-w-[20rem] ml-2">
-              {text || "No description"}
+              {text || "Welcome"}
             </p>
           )}
         </SecondDiv>

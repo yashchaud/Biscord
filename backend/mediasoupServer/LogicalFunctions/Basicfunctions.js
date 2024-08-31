@@ -29,7 +29,7 @@ async function createWebRtcTransport(router) {
         listenIps: [
           {
             ip: "0.0.0.0",
-            announcedIp: "65.1.55.237",
+            announcedIp: "127.0.0.1",
           },
         ],
         enableUdp: true,
