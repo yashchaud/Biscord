@@ -34,7 +34,7 @@ server.on("error", onError);
 server.on("listening", onListening);
 const io = new Server(server, {
   cors: {
-    origin: "https://yashportfoliohub.site",
+    origin: "https://www.yashportfoliohub.site",
     credentials: true,
   },
   cookie: true,

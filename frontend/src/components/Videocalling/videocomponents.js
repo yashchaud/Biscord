@@ -116,7 +116,7 @@ const Videocomponents = ({
       <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 px-2 py-1 rounded text-sm">
         User
       </div>
-      <div className="absolute top-2 right-2 flex space-x-2">
+      {/* <div className="absolute top-2 right-2 flex space-x-2">
         <Button
           variant="ghost"
           size="icon"
@@ -141,7 +141,7 @@ const Videocomponents = ({
             <Video className="h-4 w-4 text-white" />
           )}
         </Button>
-      </div>
+      </div> */}
     </div>
   ) : (
     <audio ref={mediaRef} autoPlay muted={isMuted}></audio>

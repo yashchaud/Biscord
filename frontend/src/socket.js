@@ -6,7 +6,7 @@ let notificationSocket;
 
 export const connectSocket = () => {
   if (!socket) {
-    socket = io("https://yashportfoliohub.site", {
+    socket = io("https://www.yashportfoliohub.site", {
       withCredentials: true,
       secure: true,
     });

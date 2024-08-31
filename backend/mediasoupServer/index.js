@@ -10,7 +10,7 @@ const ports = 3000;
 
 var port = normalizePort(ports || "3000");
 const corsOptions = {
-  origin: "https://yashportfoliohub.site", // Specify the origin of your frontend application
+  origin: "https://www.yashportfoliohub.site", // Specify the origin of your frontend application
   credentials: true, // This allows cookies and credentials to be included in the requests
 };
 app.use(cors(corsOptions));

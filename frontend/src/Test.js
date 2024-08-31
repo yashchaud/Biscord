@@ -13,7 +13,7 @@ import { HMSRoomProvider, HMSVideoGrid } from "@100mslive/react-sdk";
 import styled from "styled-components";
 import io from "socket.io-client";
 
-const socket = io("https://yashportfoliohub.site");
+const socket = io("https://www.yashportfoliohub.site");
 
 const PeerVideo = ({ peer, videoEnabled, screenshareOn }) => {
   const videoRef = useRef(null);
