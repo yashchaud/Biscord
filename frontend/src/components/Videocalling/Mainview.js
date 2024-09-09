@@ -20,7 +20,7 @@ import { settogglesidebar } from "@/Redux/sessionSlice";
 import { Mic, MicOff, Video, VideoOff } from "lucide-react";
 import { Button } from "@ui/button";
 
-// const socket = io("https://biscord.site/", { secure: true });
+const socket = io("http://localhost:3004", { secure: true });
 
 const Mainview = () => {
   const dispatch = useDispatch();
@@ -489,13 +489,41 @@ const Mainview = () => {
     }
     socket.on("disconnect", () => {
       console.log("socket disconnected");
+
+      socket.disconnect();
+      socket.off("connect");
+
       setDisconnected(true);
     });
+    socket.on("user-disconnected", ({ consumerIds }) => {
+      console.log(`User disconnected with consumer IDs: ${consumerIds}`);
 
+      if (Array.isArray(consumerIds) && consumerIds.length > 0) {
+        setConsumerTracks((prevTracks) =>
+          prevTracks.filter((track) => consumerIds.includes(track.consumer.id))
+        );
+
+        consumerIds.forEach((consumerId) => {
+          const consumerToClose = consumerTransports.current.find(
+            (transportData) => transportData.consumer.id === consumerId
+          );
+          if (consumerToClose) {
+            consumerToClose.consumerTransport.close();
+            consumerToClose.consumer.close();
+          }
+          consumerTransports.current = consumerTransports.current.filter(
+            (transportData) => transportData.consumer.id !== consumerId
+          );
+        });
+      } else {
+        console.warn("No valid consumer IDs received for disconnection.");
+      }
+    });
     return () => {
       isMounted.current = false;
       socket.off("connect");
       socket.disconnect();
+      socket.off("user-disconnected");
 
       // Clean up tracks and transports
       if (producerTransportRef.current) {
@@ -753,7 +781,7 @@ const Mainview = () => {
                 >
                   <div className="text-white text-lg">Video Paused</div>
                 </div>
-                <div className="absolute bottom-2 left-2 bg-white bg-opacity-50 px-2 py-1 rounded text-sm">
+                <div className="absolute bottom-2 left-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white px-3 py-1 rounded-full text-sm shadow-lg">
                   User
                 </div>
                 {/* <div className="absolute top-2 right-2 flex space-x-2">

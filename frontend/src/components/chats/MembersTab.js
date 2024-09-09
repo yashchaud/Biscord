@@ -7,6 +7,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useParams } from "react-router-dom";
 import { gsap } from "gsap";
 import { useGSAP } from "@gsap/react";
+import styled from "styled-components"; // Import styled-components
 
 const SvgKing = ({ w, d }) => {
   return (
@@ -75,9 +76,9 @@ const MembersTab = () => {
               <Profilephoto className="w-6 h-6  rounded-full self-center" />
             </div>
             <div className="flex   justify-center items-center gap-[5px] hover:text-white">
-              <h1 className="text-[#b5bac1] text-md  ">
+              <TextStyled className="text-[#b5bac1] text-md">
                 {members?.owner?.username}
-              </h1>
+              </TextStyled>
               <SvgKing w={15} d={20} />
             </div>
           </div>
@@ -93,9 +94,9 @@ const MembersTab = () => {
                     <Profilephoto className="w-6 h-6  rounded-full self-center" />
                   </div>
                   <div className="flex   justify-center items-center gap-[5px]">
-                    <h1 className="text-[#b5bac1] text-md ">
+                    <TextStyled className="text-[#b5bac1] text-md">
                       {member.username}
-                    </h1>
+                    </TextStyled>
                   </div>
                 </div>
               );
@@ -107,3 +108,50 @@ const MembersTab = () => {
 };
 
 export default MembersTab;
+
+const TextStyled = styled.h1`
+  max-width: 9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+const Container = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+`;
+
+const MemberCard = styled.div`
+  background-color: #2b2d31;
+  width: 45%;
+  height: 2.7rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  &:hover {
+    background-color: #313338;
+    color: white;
+  }
+`;
+
+const ProfileContainer = styled.div`
+  height: 2rem;
+  width: 2rem;
+  border-radius: 50%;
+  background-color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-left: 0.5rem;
+`;
+
+const UsernameContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+`;

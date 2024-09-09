@@ -6,6 +6,7 @@ import { useDispatch } from "react-redux";
 import { Avatar, AvatarFallback, AvatarImage } from "@ui/avatar";
 import green from "../images/green.jpg";
 import Invincible from "../images/invincible.svg";
+
 const Profilephoto = ({ borderColor, borderWidth }) => {
   const dispatch = useDispatch();
 
@@ -23,7 +24,7 @@ const Profilephoto = ({ borderColor, borderWidth }) => {
           alt=""
         />
         <div>
-          <img src={profile} alt="" />
+          <img src={profile} alt="" className="ProfileImage" />
 
           <AvatarStyled borderColor={borderColor} borderWidth={borderWidth}>
             <AvatarImage src={green} alt="@shadcn" />
@@ -73,6 +74,12 @@ const Cover = styled.div`
     transform: scale(1.25);
     object-fit: cover;
   }
+  .ProfileImage {
+    width: 100%;
+    height: 100%;
+    border-radius: 100%;
+    object-fit: cover;
+  }
   .StatusMain {
     width: 100%;
     height: 100%;
@@ -113,4 +120,11 @@ const AvatarStyled = styled(Avatar)`
   border: ${(props) => props.borderWidth || "2px"} solid
     ${(props) => props.borderColor || "#111214"};
   background-color: #111214;
+`;
+
+const TextStyled = styled.h1`
+  max-width: 4rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `;

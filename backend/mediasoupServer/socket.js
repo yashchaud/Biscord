@@ -347,6 +347,11 @@ module.exports = async function (io) {
       peers.set(socket.id, peer);
     };
     const addProducer = async (producer, roomName, kind) => {
+      if (producers.some((p) => p.producer.id === producer.id)) {
+        console.warn(`Producer ${producer.id} already exists.`);
+        return;
+      }
+
       producers = [
         ...producers,
         { socketId: socket.id, producer, roomName, kind },
@@ -359,6 +364,11 @@ module.exports = async function (io) {
     };
 
     const addConsumer = (consumer, roomName) => {
+      if (consumers.some((c) => c.consumer.id === consumer.id)) {
+        console.warn(`Consumer ${consumer.id} already exists.`);
+        return;
+      }
+
       consumers = [...consumers, { socketId: socket.id, consumer, roomName }];
 
       let peer = peers.get(socket.id);
@@ -367,6 +377,11 @@ module.exports = async function (io) {
     };
 
     socket.on("joinRoom", async ({ roomName }, callback) => {
+      if (peers.has(socket.id)) {
+        console.warn(`Socket ${socket.id} is already in a room.`);
+        return callback({ error: "You are already in a room." });
+      }
+
       let router1;
       let router2;
       let rtpCapabilities;
@@ -738,6 +753,19 @@ module.exports = async function (io) {
 
     socket.on("disconnect", () => {
       console.log("peer disconnected");
+      const consumerIds = consumers
+        .filter((c) => c.socketId === socket.id)
+        .map((c) => c.consumer.id);
+
+      // Ensure you emit an array, even if it's empty
+      socket.broadcast.emit("user-disconnected", {
+        consumerIds: consumerIds || [],
+      });
+      // io.broadcast.to(socket.roomName).emit("user-disconnected", {
+      //   consumerIds: consumerIds || [],
+      // });
+
+      // io.emit("user-disconnected", socket.id);
       producers = producers.filter((p) => p.socketId !== socket.id);
       consumers = consumers.filter((c) => c.socketId !== socket.id);
       transports = removeItems(transports, socket.id, "transport");

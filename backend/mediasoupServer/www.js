@@ -395,9 +395,16 @@ module.exports = async function (io) {
       socket.join(roomName); // Join the socket to the room
       let rpa = router1.rtpCapabilities;
       Remoteindex += 1;
+      const producerStates = producers
+        .filter((producerData) => producerData.roomName === roomName)
+        .map((producerData) => ({
+          producerId: producerData.producer.id,
+          isPaused: producerData.producer.paused,
+        }));
       callback({
         Routers,
         Currentindex,
+        producerStates,
       });
     });
     socket.on("getRouterindex", async ({ producerid }, callback) => {
@@ -600,22 +607,40 @@ module.exports = async function (io) {
             socket.on(
               "consumer-resume",
               async ({ serverConsumerId, producerId }) => {
-                const { consumer } = consumers.find(
+                const consumerData = consumers.find(
                   (consumerData) =>
                     consumerData.consumer.id === serverConsumerId
                 );
-                if (!consumer) return;
-                if (producerId) {
-                  producers.forEach(async (producerData) => {
-                    if (producerData.producer.id === producerId) {
-                      await producerData.producer.resume();
-                    }
-                  });
+                const consumer = consumerData ? consumerData.consumer : null;
+
+                if (!consumer || consumer.closed) {
+                  console.error(
+                    `Consumer with ID ${serverConsumerId} not found or already closed.`
+                  );
+                  return;
                 }
 
-                await consumer?.resume();
+                // Resume the producer if necessary
+                if (producerId) {
+                  const producer = producers.find(
+                    (producerData) => producerData.producer.id === producerId
+                  )?.producer;
+                  if (producer && producer.paused) {
+                    await producer.resume();
+                  }
+                }
+
+                // Resume the consumer
+                await consumer.resume();
+
+                // Notify all clients in the room to resume the stream
+                io.to(socket.roomName).emit("stream-resumed", {
+                  producerId,
+                  serverConsumerId,
+                });
               }
             );
+
             socket.on(
               "consumer-pause",
               async ({ serverConsumerId, producerId }) => {
@@ -631,13 +656,27 @@ module.exports = async function (io) {
                     await producerData.producer.pause();
                   }
                 });
+
+                // Notify all clients in the room to pause the stream
+                io.to(socket.roomName).emit("stream-paused", {
+                  producerId,
+                  serverConsumerId,
+                });
               }
             );
+            function removeConsumer(consumerId) {
+              consumers = consumers.filter(
+                (consumerData) => consumerData.consumer.id !== consumerId
+              );
+            }
             socket.on("consumer-close", ({ serverConsumerId }) => {
               const { consumer } = consumers.find(
                 (consumerData) => consumerData.consumer.id === serverConsumerId
               );
-              consumer.close();
+              if (consumer) {
+                consumer.close();
+                removeConsumer(serverConsumerId);
+              }
             });
             socket.on("producer-close", ({ producerId }) => {
               producers.forEach((producerData) => {

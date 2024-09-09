@@ -30,10 +30,18 @@ const Videocomponents = ({
     }
   };
 
-  socket.on("error", (err) => {
-    console.error("Socket error:", err);
-    // Optionally show some UI feedback to the user
-  });
+  useEffect(() => {
+    const handleError = (err) => {
+      console.error("Socket error:", err);
+      // Optionally show some UI feedback to the user
+    };
+
+    socket.on("error", handleError);
+
+    return () => {
+      socket.off("error", handleError);
+    };
+  }, [socket]);
 
   const handleVideoToggle = () => {
     if (kind === "video") {
@@ -113,7 +121,7 @@ const Videocomponents = ({
       >
         <div className="text-white text-lg">Video Paused</div>
       </div>
-      <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 px-2 py-1 rounded text-sm">
+      <div className="absolute bottom-2 left-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white px-3 py-1 rounded-full text-sm shadow-lg">
         User
       </div>
       {/* <div className="absolute top-2 right-2 flex space-x-2">

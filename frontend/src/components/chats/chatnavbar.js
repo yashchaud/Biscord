@@ -19,6 +19,7 @@ import axios from "axios";
 import { useParams, useLocation } from "react-router-dom";
 import { setsearchresult, setToggleMemberstab } from "@/Redux/sessionSlice";
 import members from "../images/members.svg";
+import Threadcreate from "../clickableComponents/Threads";
 
 const ChatNavbar = () => {
   const location = useLocation();
@@ -44,9 +45,6 @@ const ChatNavbar = () => {
     axios.get(`/api/users/users/getusers`).then((response) => {
       setUser(response.data);
     });
-    // axios.get(`/api/server/servers/${id}`).then((response) => {
-    //   setText(response.data.channelDescription);
-    // });
   }, [channelId]);
 
   const handleTextClick = () => {
@@ -63,6 +61,7 @@ const ChatNavbar = () => {
       channelDescription: text,
     });
   };
+
   useEffect(() => {
     axios.get(`/api/channel/channelfind/${channelId}`).then((res) => {
       setText(res.data.channelDescription);
@@ -74,6 +73,7 @@ const ChatNavbar = () => {
     setThread(!Thread);
     dispatch(setThreads(!Thread));
   };
+
   useEffect(() => {
     dispatch(setsearchresult([]));
   }, [toggleSearchBar, location]);
@@ -111,12 +111,7 @@ const ChatNavbar = () => {
       <ThirdDiv>
         <div className="innerDiv">
           <div className="firstDivNoti">
-            <img
-              onClick={handleThreadClick}
-              style={{ cursor: "pointer" }}
-              src={Threads}
-              alt=""
-            />
+            <Threadcreate />
           </div>
           <div>
             <img
