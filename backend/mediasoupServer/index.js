@@ -10,7 +10,7 @@ const ports = 3000;
 
 var port = normalizePort(ports || "3004");
 const corsOptions = {
-  origin: "https://www.yashportfoliohub.site/", // Specify the origin of your frontend application
+  origin: "https://www.yashportfoliohub.site", // Specify the origin of your frontend application
   credentials: true, // This allows cookies and credentials to be included in the requests
 };
 app.use(cors(corsOptions));
@@ -35,7 +35,7 @@ server.on("listening", onListening);
 // Initialize Socket.IO after the server is created
 const io = new Server(server, {
   cors: {
-    origin: "https://www.yashportfoliohub.site/",
+    origin: "https://www.yashportfoliohub.site",
     credentials: true,
   },
 });
