@@ -81,7 +81,7 @@ function App() {
         });
 
         if (Currentwidth < 768) {
-          navigate("/@me");
+          navigate("/@mobileme");
         } else {
           navigate("/@me");
         }

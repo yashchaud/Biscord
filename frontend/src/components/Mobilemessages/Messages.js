@@ -68,7 +68,7 @@ const Messages = () => {
                   key={user._id}
                   onClick={(event) => {
                     event.stopPropagation();
-                    navigate(`/@mobileme/${user._id}`);
+                    navigate(`/@me/${user._id}`);
                   }}
                 >
                   <div className="profilediv">

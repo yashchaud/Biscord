@@ -181,9 +181,7 @@ const App = () => {
           )}
           <Route path="/@mobileme" element={<MobilePAge />} />
           <Route path="/@mobileme/:userId" element={<Usersection />} />
-          {currentWidth < 1024 && (
-            <Route path="/@me" element={<Useronlinepage />} />
-          )}
+          <Route path="/@me" element={<Useronlinepage />} />
           <Route path="/@me/:userId" element={<Directsectionpage />} />
           <Route path="/tests" element={<Test />} />
           {/* <Route path="/@mobileme" element={<Messages />} />

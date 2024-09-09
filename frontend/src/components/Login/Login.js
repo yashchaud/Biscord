@@ -103,11 +103,11 @@ const Login = () => {
           position: "bottom-right",
         });
 
-        if (Currentwidth < 768) {
-          navigate("/@mobileme");
-        } else {
-          navigate("/@me");
-        }
+        // if (Currentwidth < 768) {
+        //   navigate("/@mobileme");
+        // } else {
+        //   navigate("/@me");
+        // }
 
         setEmail("");
         setPassword("");

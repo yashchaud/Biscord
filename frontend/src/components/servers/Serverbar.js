@@ -132,7 +132,7 @@ const Serverbar = () => {
         <Cover ref={container}>
           <div>
             {currentWidth < 769 && (
-              <Link to={`/@mobileme`}>
+              <Link to={`/@me`}>
                 <Logodiv onClick={() => dispatch(setMessageFlag(false))}>
                   <img src={discordlogo} alt="" />
                 </Logodiv>
