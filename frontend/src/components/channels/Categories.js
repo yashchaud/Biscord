@@ -45,6 +45,9 @@ const Categories = ({ category, index }) => {
             {category.channels.map((channel, index) => (
               <>
                 <Textchannel
+                  onClick={() => {
+                    dispatch(setCategoryflag(true));
+                  }}
                   key={channel._id}
                   channel={channel}
                   index={index}

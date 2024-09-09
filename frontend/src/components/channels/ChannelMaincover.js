@@ -17,6 +17,7 @@ import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { useLocation } from "react-router-dom";
 import { toast, Toaster } from "sonner";
+import { setCategoryflag } from "@Redux/sessionSlice";
 
 const ChannelMaincover = () => {
   const [categories, setCategories] = useState();
@@ -154,6 +155,9 @@ const ChannelMaincover = () => {
                 noncategory.map((channel, index) => (
                   <div>
                     <Textchannel
+                      onClick={() => {
+                        dispatch(setCategoryflag(true));
+                      }}
                       key={channel._id}
                       channel={channel}
                       index={index}

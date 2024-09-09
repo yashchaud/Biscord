@@ -1,13 +1,16 @@
-import React, { useState, useEffect, useRef } from "react";
-import "./login.css";
-import axios from "axios";
-import styled from "styled-components";
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { Button } from "@ui/button";
+import background from "@/components/images/discordbackground.svg";
+import logo from "@/components/images/discordlogologin.svg";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { setUserinfo } from "../../Redux/sessionSlice";
 import { useQueryClient } from "@tanstack/react-query";
 import { Toaster, toast } from "sonner";
-import { getSocket } from "../../socket";
+import axios from "axios";
+import styled from "styled-components";
+import Cookies from "js-cookie";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -18,7 +21,6 @@ const Login = () => {
   const dispatch = useDispatch();
   const queryClient = useQueryClient();
   const [Currentwidth, setCurrentwidth] = useState(window.innerWidth);
-  const socket = getSocket();
 
   useEffect(() => {
     toast.message("You can Sign Up or use this test account ", {
@@ -36,31 +38,6 @@ const Login = () => {
     };
   }, [window.innerWidth, Currentwidth]);
 
-  useEffect(() => {
-    const signUpButton = document.getElementById("signUp");
-    const signInButton = document.getElementById("signIn");
-    const container = document.getElementById("container");
-
-    const handleSignUpClick = () => {
-      container.classList.add("right-panel-active");
-      setIsSignUp(true);
-    };
-
-    const handleSignInClick = () => {
-      container.classList.remove("right-panel-active");
-      setIsSignUp(false);
-    };
-
-    signUpButton.addEventListener("click", handleSignUpClick);
-    signInButton.addEventListener("click", handleSignInClick);
-
-    // Cleanup function to remove event listeners when component unmounts
-    return () => {
-      signUpButton.removeEventListener("click", handleSignUpClick);
-      signInButton.removeEventListener("click", handleSignInClick);
-    };
-  }, []);
-
   const handleEmailChange = (event) => {
     setEmail(event.target.value);
   };
@@ -73,6 +50,7 @@ const Login = () => {
   };
 
   const handleSubmit = (event) => {
+    console.log("Inside");
     event.preventDefault();
 
     axios
@@ -89,7 +67,6 @@ const Login = () => {
       .then(function (response) {
         console.log(response);
         dispatch(setUserinfo(response.data.user));
-
         toast.success("Login Successful, Welcome Back", {
           duration: 2000,
           style: {
@@ -102,17 +79,17 @@ const Login = () => {
           },
           position: "bottom-right",
         });
+        // Save the user in the local storage
+        localStorage.setItem("user", JSON.stringify(response.data.user));
 
-        // if (Currentwidth < 768) {
-        //   navigate("/@mobileme");
-        // } else {
-        //   navigate("/@me");
-        // }
+        if (Currentwidth < 768) {
+          navigate("/@me");
+        } else {
+          navigate("/@me");
+        }
 
         setEmail("");
         setPassword("");
-        socket.disconnect();
-        socket.connect();
       })
       .catch(function (error) {
         console.log(error);
@@ -130,133 +107,81 @@ const Login = () => {
         });
       });
   };
-  const handleregister = (event) => {
-    event.preventDefault();
-    // Handle login logic here
-    console.log("Email:", email);
-    console.log("Password:", password);
-    // You can replace the console.log with your actual login logic
-    axios
-      .post(
-        "/api/users/user/register",
-        {
-          username,
-          email,
-          password: password,
-        },
-        {
-          withCredentials: true, // Important for cookies
-        }
-      )
-      .then(function (response) {
-        console.log(response);
-        dispatch(setUserinfo(response.data.user));
-        toast.success("Registration Successful, Welcome", {
-          duration: 1000,
-          style: {
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            border: "none",
-            filter: "drop-shadow(0px 0px 3px #151617)",
-            dropshadow: "1px 1px 1px rgba(0, 0, 0, 0.5)",
-            backgroundImage:
-              "radial-gradient( circle 100px at -1.4% 14%,  #66ffad4b 0%, #27292c 90% )",
-          },
-          position: "bottom-right",
-        });
-        navigate("/channel");
-        setEmail("");
-        setPassword("");
-        setUsername("");
-      })
-      .catch(function (error) {
-        console.log(error);
-        toast.error("User Already Exists", {
-          style: {
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            border: "none",
-            filter: "drop-shadow(0px 0px 3px #151617)",
-            dropshadow: "1px 1px 1px rgba(0, 0, 0, 0.5)",
-            backgroundImage:
-              "radial-gradient( circle 100px at -1.4% 14%,  #fc51518a 0%, #27292c 90% )",
-          },
-          position: "top-right",
-          duration: 2000,
-        });
-      });
-  };
 
   return (
-    <Cover>
-      <div className="container" id="container">
-        <div className="form-container sign-up-container">
-          <form onSubmit={handleSubmit}>
-            <h1>Create Account</h1>
-            <span>or use your email for registration</span>
+    <div
+      className="flex items-center justify-center min-h-screen bg-[#5865F2]"
+      style={{
+        backgroundImage: `url(${background})`,
+        backgroundSize: "cover",
+        backgroundRepeat: "no-repeat",
+        minWidth: "100vw",
+        height: "100vh",
+      }}
+    >
+      <div className="absolute top-8 left-8 flex items-center space-x-1">
+        <div className="w-2 h-14 text-white" />
+        <img src={logo} className="h-6" alt="Brand Logo" />
+        {/* <img src={logoName} className="h-7" alt="Brand Name" /> */}
+      </div>
+      <div className="w-full h-full max-w-md p-8 bg-[#313338] rounded-none shadow-lg md:rounded-md md:h-auto md:max-w-lg  max-md:min-w-[100vw]">
+        <div className="text-center max-md:mt-[5rem]">
+          <h2 className="mb-1 text-2xl font-bold text-white">Welcome back!</h2>
+          <p className="text-base font text-gray-400">
+            We're so excited to see you again!
+          </p>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4 mt-3">
+          <div className="space-y-1">
+            <label
+              htmlFor="email"
+              className="text-xs font-bold text-gray-300 mr-2"
+            >
+              EMAIL OR PHONE NUMBER
+            </label>
+            <label style={{ color: "red" }}>*</label>
             <input
+              id="email"
+              onChange={(e) => setEmail(e.target.value)}
               type="text"
-              placeholder="Name"
-              onChange={handleusernameChange}
-              value={username}
+              className="w-full p-1.5 bg-[#1E1F22] border-none border-transparent focus:outline-none focus:border-transparent rounded-sm text-white"
             />
+          </div>
+          <div className="space-y-1">
+            <label
+              htmlFor="password"
+              className="text-xs font-bold text-gray-300 mr-2"
+            >
+              PASSWORD
+            </label>
+            <label style={{ color: "red" }}>*</label>
             <input
-              type="email"
-              placeholder="Email"
-              onChange={handleEmailChange}
-              value={email}
-            />
-            <input
+              id="password"
+              onChange={(e) => setPassword(e.target.value)}
               type="password"
-              placeholder="Password"
-              onChange={handlePasswordChange}
-              value={password}
+              className="w-full p-1.5 bg-[#1E1F22] border-none border-transparent focus:outline-none focus:border-transparent rounded-sm text-white"
             />
-            <button onClick={handleregister} type="submit">
-              Sign Up
+            <a href="#" className="text-sm text-[#00AFF4] block mt-1">
+              Forgot your password?
+            </a>
+          </div>
+          <div>
+            <button
+              className="w-full py-2 bg-[#5865F2] text-white rounded-sm"
+              style={{ backgroundColor: "#5865F2" }}
+            >
+              Log In
             </button>
-          </form>
-        </div>
-        <div className="form-container sign-in-container">
-          <form onSubmit={handleSubmit}>
-            <h1>Sign in</h1>
-            <span>or use your account</span>
-            <input
-              type="email"
-              placeholder="Email"
-              onChange={handleEmailChange}
-              value={email}
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              onChange={handlePasswordChange}
-              value={password}
-            />
-            <a href="#">Forgot your password?</a>
-            <button type="submit">Sign In</button>
-          </form>
-        </div>
-        <div className="overlay-container">
-          <div className="overlay">
-            <div className="overlay-panel overlay-left">
-              <h1>Welcome Back!</h1>
-              <p>
-                To keep connected with us please login with your personal info
-              </p>
-              <button className="ghost" id="signIn">
-                Sign In
-              </button>
-            </div>
-            <div className="overlay-panel overlay-right">
-              <h1>Hello, Friend!</h1>
-              <p>Enter your personal details and start journey with us</p>
-              <button className="ghost" id="signUp">
-                Sign Up
-              </button>
+            <div className="mt-2 text-sm text-gray-400">
+              Need an account?{" "}
+              <Link to="/register" className="text-[#00AFF4]">
+                Register
+              </Link>
             </div>
           </div>
-        </div>
+        </form>
       </div>
-    </Cover>
+    </div>
   );
 };
 

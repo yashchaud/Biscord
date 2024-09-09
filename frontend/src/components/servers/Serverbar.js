@@ -75,28 +75,27 @@ const Serverbar = () => {
   }, [currentWidth, window.innerWidth]);
 
   useEffect(() => {
-    if (currentWidth < 1024 && !FriendTabFlag) {
-      setLocalsidebar(true);
-      return;
-    }
+    // if (currentWidth < 768 && createchannelflag) {
+    //   setLocalsidebar(false);
+    //   return;
+    // }
+    // if (currentWidth < 1024 && !FriendTabFlag) {
+    //   setLocalsidebar(true);
+    //   return;
+    // }
 
-    if (currentWidth < 768 && !togglesidebar) {
-      setLocalsidebar(false);
-      return;
-    }
-    if (currentWidth < 768 && MessageFlag === true) {
-      setLocalsidebar(true);
-      return;
-    }
-    if (currentWidth < 768 && MessageFlag === false) {
-      setLocalsidebar(true);
-      return;
-    }
-
-    if (currentWidth < 768 && Categoryflag) {
-      setLocalsidebar(false);
-      return;
-    }
+    // if (currentWidth < 768 && !togglesidebar) {
+    //   setLocalsidebar(false);
+    //   return;
+    // }
+    // if (currentWidth < 768 && MessageFlag === true) {
+    //   setLocalsidebar(true);
+    //   return;
+    // }
+    // if (currentWidth < 768 && MessageFlag === false) {
+    //   setLocalsidebar(true);
+    //   return;
+    // }
 
     setLocalsidebar(togglesidebar);
   }, [

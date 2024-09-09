@@ -20,7 +20,7 @@ import { settogglesidebar } from "@/Redux/sessionSlice";
 import { Mic, MicOff, Video, VideoOff } from "lucide-react";
 import { Button } from "@ui/button";
 
-const socket = io("http://localhost:3004", { secure: true });
+const socket = io("https://www.biscord.site/", { secure: true });
 
 const Mainview = () => {
   const dispatch = useDispatch();

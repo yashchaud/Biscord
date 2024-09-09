@@ -19,11 +19,18 @@ module.exports = function (io) {
     const decodedPayload = JSON.parse(Buffer.from(base64, "base64").toString());
 
     const user = await UserSchema.findByIdAndUpdate(
-      { _id: decodedPayload.userId },
-      { $set: { connected: true } }
+      decodedPayload.userId,
+      { $set: { connected: true } },
+      { new: true }
     );
 
     console.log("A user connected", socket.id, user);
+
+    // Notify all clients about the user's online status
+    io.emit("user-status-changed", {
+      userId: decodedPayload.userId,
+      connected: true,
+    });
 
     socket.on("join_channel", (channelId) => {
       console.log(channelId);
@@ -64,21 +71,12 @@ module.exports = function (io) {
         }
 
         if (data.channel) {
-          let = chat = await chatcontroller.sendMessage(
+          let chat = await chatcontroller.sendMessage(
             data,
             decodedPayload.userId
           );
           console.log(data);
           const server = await Server.findById(data.server);
-
-          // server.members.map(async (member) => {
-          //   await produceMessage("message-topic", {
-          //     message: data.content,
-          //     from: decodedPayload.userId,
-          //     reciever: member,
-          //     server: data.server,
-          //   });
-          // });
 
           io.to(data.channel).emit("new_message", chat);
 
@@ -117,9 +115,17 @@ module.exports = function (io) {
       );
 
       const user = await UserSchema.findByIdAndUpdate(
-        { _id: decodedPayload.userId },
-        { $set: { connected: false } }
+        decodedPayload.userId,
+        { $set: { connected: false } },
+        { new: true }
       );
+
+      // Notify all clients about the user's offline status
+      io.emit("user-status-changed", {
+        userId: decodedPayload.userId,
+        connected: false,
+      });
+
       console.log(user);
     });
   });

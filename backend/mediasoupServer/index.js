@@ -33,7 +33,11 @@ server.on("error", onError);
 server.on("listening", onListening);
 
 // Initialize Socket.IO after the server is created
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, {
+  cors: {
+    origin: "https://www.yashportfoliohub.site",
+  },
+});
 Socketsetup(io);
 
 function normalizePort(val) {

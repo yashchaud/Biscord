@@ -9,14 +9,16 @@ import { Link } from "react-router-dom";
 import Profilephoto from "@/components/userprofile/profilephoto";
 import { useSelector } from "react-redux";
 import { ScrollArea } from "@ui/scroll-area";
+import { getSocket } from "@/socket"; // Import the getSocket function
 
 const Onlineuserlist = () => {
   const [users, setUsers] = useState([]);
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState("pending"); // New state to manage the filter type
+  const [filter, setFilter] = useState("pending");
   const { SearchFilterForUseronline } = useSelector(
     (state) => state.counterSlice
   );
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -34,6 +36,22 @@ const Onlineuserlist = () => {
   useEffect(() => {
     setFilter(SearchFilterForUseronline);
   }, [SearchFilterForUseronline]);
+
+  useEffect(() => {
+    const socket = getSocket(); // Get the socket instance
+
+    socket.on("user-status-changed", ({ userId, connected }) => {
+      setUsers((prevUsers) =>
+        prevUsers.map((user) =>
+          user._id === userId ? { ...user, connected } : user
+        )
+      );
+    });
+
+    return () => {
+      socket.off("user-status-changed");
+    };
+  }, []);
 
   const filteredUsers = users.filter((user) =>
     filter === "online"
