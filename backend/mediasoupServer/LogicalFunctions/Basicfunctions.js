@@ -3,7 +3,7 @@ const os = require("os");
 require("dotenv").config();
 
 const RTC_MIN_PORT = 2000;
-const RTC_MAX_PORT = 2200;
+const RTC_MAX_PORT = 3000;
 // const ANNOUNCED_IP = "127.0.0.1";
 const ANNOUNCED_IP = "65.1.55.237";
 
