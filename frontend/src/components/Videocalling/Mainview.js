@@ -535,9 +535,10 @@ const Mainview = () => {
     });
     return () => {
       isMounted.current = false;
+
       socket.off("connect");
-      socket.disconnect();
       socket.off("user-disconnected");
+      socket.disconnect();
 
       // Clean up tracks and transports
       if (producerTransportRef.current) {
@@ -550,7 +551,7 @@ const Mainview = () => {
       setConsumerTracks([]);
       setDisconnected(true);
     };
-  }, []);
+  }, [socket]);
 
   useEffect(() => {
     console.log(peers);
