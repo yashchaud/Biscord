@@ -489,7 +489,21 @@ const Mainview = () => {
     }
     socket.on("disconnect", () => {
       console.log("socket disconnected");
+      isMounted.current = false;
+      socket.off("connect");
+      socket.disconnect();
+      socket.off("user-disconnected");
 
+      // Clean up tracks and transports
+      if (producerTransportRef.current) {
+        producerTransportRef.current.close();
+      }
+      consumerTransports.current.forEach((transport) => {
+        transport.consumerTransport.close();
+        transport.consumer.close();
+      });
+      setConsumerTracks([]);
+      setDisconnected(true);
       socket.disconnect();
       socket.off("connect");
 
