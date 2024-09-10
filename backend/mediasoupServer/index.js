@@ -38,8 +38,8 @@ const io = new Server(server, {
     origin: "https://www.yashportfoliohub.site",
     credentials: true,
   },
-  pingInterval: 5000, // Send a ping every 10 seconds
-  pingTimeout: 5000,
+  pingInterval: 3000, // Send a ping every 10 seconds
+  pingTimeout: 3000,
 });
 Socketsetup(io);
 
