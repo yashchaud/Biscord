@@ -597,6 +597,14 @@ const Mainview = () => {
       const [track] = stream.getVideoTracks();
       const screenShareProducer = await producerTransportRef.current.produce({
         track,
+        encodings: [
+          { rid: "r0", maxBitrate: 100000, scalabilityMode: "S1T3" },
+          { rid: "r1", maxBitrate: 300000, scalabilityMode: "S1T3" },
+          { rid: "r2", maxBitrate: 900000, scalabilityMode: "S1T3" },
+        ],
+        codecOptions: {
+          videoGoogleStartBitrate: 1000,
+        },
       });
 
       setScreenProducer(screenShareProducer);
@@ -738,6 +746,46 @@ const Mainview = () => {
     },
     { scope: container, dependencies: [isAudioMuted] }
   );
+
+  const monitorNetworkConditions = () => {
+    let lastTimestamp = 0;
+    setInterval(async () => {
+      if (producerTransportRef.current) {
+        const stats = await producerTransportRef.current.getStats();
+        stats.forEach((report) => {
+          if (report.type === "outbound-rtp" && report.kind === "video") {
+            const bitrate =
+              (report.bytesSent * 8) / (report.timestamp - lastTimestamp);
+            lastTimestamp = report.timestamp;
+            console.log(`Current bitrate: ${bitrate} bps`);
+            adjustVideoQuality(bitrate);
+          }
+        });
+      }
+    }, 5000); // Check every 5 seconds
+  };
+  useEffect(() => {
+    monitorNetworkConditions();
+  }, []);
+
+  const adjustVideoQuality = (bitrate) => {
+    if (bitrate < 300000) {
+      // Switch to lower quality
+      videoProducer.setParameters({
+        encodings: [{ maxBitrate: 100000 }],
+      });
+    } else if (bitrate < 900000) {
+      // Switch to medium quality
+      videoProducer.setParameters({
+        encodings: [{ maxBitrate: 300000 }],
+      });
+    } else {
+      // Switch to high quality
+      videoProducer.setParameters({
+        encodings: [{ maxBitrate: 900000 }],
+      });
+    }
+  };
 
   return (
     <>

@@ -40,7 +40,7 @@ module.exports = async function (io) {
     },
     {
       kind: "video",
-      mimeType: "video/VP9",
+      mimeType: "video/VP8",
       clockRate: 90000,
       parameters: {
         "x-google-start-bitrate": 1000,
@@ -509,10 +509,25 @@ module.exports = async function (io) {
           try {
             let producer;
 
-            producer = await getTransport(socket.id).produce({
-              kind,
-              rtpParameters,
-            });
+            if (kind === "video") {
+              producer = await getTransport(socket.id).produce({
+                kind,
+                rtpParameters,
+                encodings: [
+                  { rid: "r0", maxBitrate: 100000, scalabilityMode: "S1T3" },
+                  { rid: "r1", maxBitrate: 300000, scalabilityMode: "S1T3" },
+                  { rid: "r2", maxBitrate: 900000, scalabilityMode: "S1T3" },
+                ],
+                codecOptions: {
+                  videoGoogleStartBitrate: 1000,
+                },
+              });
+            } else {
+              producer = await getTransport(socket.id).produce({
+                kind,
+                rtpParameters,
+              });
+            }
             const Currentindex = participantRouterMap.get(socket.id);
             producerRouterMap.set(producer.id, Currentindex);
 
