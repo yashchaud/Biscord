@@ -751,49 +751,34 @@ module.exports = async function (io) {
       }
     );
 
-    socket.on("disconnect", async () => {
-      try {
-        console.log("peer disconnected");
+    socket.on("disconnect", () => {
+      console.log("peer disconnected");
+      const consumerIds = consumers
+        .filter((c) => c.socketId === socket.id)
+        .map((c) => c.consumer.id);
 
-        const consumerIds = consumers
-          .filter((c) => c.socketId === socket.id)
-          .map((c) => c.consumer.id);
+      // Ensure you emit an array, even if it's empty
+      socket.broadcast.emit("user-disconnected", {
+        consumerIds: consumerIds || [],
+      });
+      // io.broadcast.to(socket.roomName).emit("user-disconnected", {
+      //   consumerIds: consumerIds || [],
+      // });
 
-        socket.broadcast.emit("user-disconnected", { consumerIds });
-
-        // Clean up producers and consumers
-        producers = producers.filter((p) => p.socketId !== socket.id);
-        consumers.forEach((consumerData) => {
-          if (consumerData.socketId === socket.id) {
-            try {
-              consumerData.consumer.close();
-            } catch (error) {
-              console.error(`Error closing consumer: ${error.message}`);
-            }
-          }
+      // io.emit("user-disconnected", socket.id);
+      producers = producers.filter((p) => p.socketId !== socket.id);
+      consumers = consumers.filter((c) => c.socketId !== socket.id);
+      transports = removeItems(transports, socket.id, "transport");
+      consumers
+        .filter((c) => c.socketId === socket.id)
+        .forEach((c) => {
+          c.consumer.close();
         });
-        consumers = consumers.filter((c) => c.socketId !== socket.id);
-
-        // Clean up transports
-        transports.forEach((transportData) => {
-          if (transportData.socketId === socket.id) {
-            try {
-              transportData.transport.close();
-            } catch (error) {
-              console.error(`Error closing transport: ${error.message}`);
-            }
-          }
-        });
-        transports = transports.filter((t) => t.socketId !== socket.id);
-
-        // Clean up peers
-        if (peers.has(socket.id)) {
-          const roomName = peers.get(socket.id).roomName;
-          socket.leave(roomName);
-          peers.delete(socket.id);
-        }
-      } catch (error) {
-        console.error("Error in disconnect handler:", error.message);
+      console.log(Peerstrack);
+      if (peers.get(socket.id)) {
+        const roomName = peers.get(socket.id).roomName;
+        socket.leave(roomName);
+        peers.delete(socket.id);
       }
     });
   });
