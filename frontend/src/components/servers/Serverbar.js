@@ -19,6 +19,12 @@ import MobileServer from "../popups/MobileServer";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@ui/tooltip";
+import {
   settogglesidebar,
   setMessageFlag,
   setFriendTabFlag,
@@ -75,28 +81,6 @@ const Serverbar = () => {
   }, [currentWidth, window.innerWidth]);
 
   useEffect(() => {
-    // if (currentWidth < 768 && createchannelflag) {
-    //   setLocalsidebar(false);
-    //   return;
-    // }
-    // if (currentWidth < 1024 && !FriendTabFlag) {
-    //   setLocalsidebar(true);
-    //   return;
-    // }
-
-    // if (currentWidth < 768 && !togglesidebar) {
-    //   setLocalsidebar(false);
-    //   return;
-    // }
-    // if (currentWidth < 768 && MessageFlag === true) {
-    //   setLocalsidebar(true);
-    //   return;
-    // }
-    // if (currentWidth < 768 && MessageFlag === false) {
-    //   setLocalsidebar(true);
-    //   return;
-    // }
-
     setLocalsidebar(togglesidebar);
   }, [
     currentWidth,
@@ -168,9 +152,18 @@ const Serverbar = () => {
               ))}
           </ServerlistContainer>
           <div>
-            <Logodivv onClick={() => dispatch(setcreateserver(true))}>
-              <img src={plusicon} alt="" />
-            </Logodivv>
+            <TooltipProvider delayDuration={0} skipDelayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Logodivv onClick={() => dispatch(setcreateserver(true))}>
+                    <img src={plusicon} alt="" />
+                  </Logodivv>
+                </TooltipTrigger>
+                <StyledTooltipContent side="right" sideOffset={10}>
+                  <p>Create Server</p>
+                </StyledTooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </Cover>
       )}
@@ -256,4 +249,21 @@ const Linedivider = styled.div`
   height: 0.1rem;
   background-color: #313338;
   margin-bottom: 0.5rem;
+`;
+const StyledTooltipContent = styled(TooltipContent)`
+  background-color: #111111;
+  color: #fff;
+  padding-inline: 0.5rem;
+  padding-block: 0.25rem;
+  border-radius: 0.25rem;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+  font-size: 0.875rem;
+  min-width: 10rem;
+  text-align: start;
+  display: flex;
+  align-items: center;
+  padding-left: 1.5rem;
+  font-size: 1rem;
+  min-height: 2.5rem;
+  z-index: 5000; /* Ensure this is higher than the server bar */
 `;

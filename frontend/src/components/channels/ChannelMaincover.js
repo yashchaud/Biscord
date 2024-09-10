@@ -203,7 +203,7 @@ const Cover = styled.div`
     min-width: 15rem;
   }
   background-color: #2b2d31;
-  z-index: 314123421;
+  z-index: 1000; /* Ensure this is lower than the tooltip */
   .Dropable {
     min-height: 1rem;
   }

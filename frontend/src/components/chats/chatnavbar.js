@@ -110,9 +110,7 @@ const ChatNavbar = () => {
       </div>
       <ThirdDiv>
         <div className="innerDiv">
-          <div className="firstDivNoti">
-            <Threadcreate />
-          </div>
+          <div className="firstDivNoti">{/* <Threadcreate /> */}</div>
           <div>
             <img
               onClick={() => dispatch(setToggleMemberstab(!toggleMemberstab))}
@@ -224,6 +222,7 @@ const ThirdDiv = styled.div`
   width: 24rem;
   margin-right: 0.5rem;
   padding-left: 1rem;
+
   align-items: center;
   position: relative;
   transition: width 0.3s ease-in-out;
