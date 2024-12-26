@@ -14,20 +14,17 @@ const corsOptions = {
   credentials: true, // This allows cookies and credentials to be included in the requests
 };
 app.use(cors(corsOptions));
-// app.set("port", port);
+app.set("port", port);
 
-// const privateKey = fs.readFileSync("./sslcert/key.pem", "utf8");
-// const certificate = fs.readFileSync("./sslcert/cert.pem", "utf8");
+const privateKey = fs.readFileSync("./sslcert/key.pem", "utf8");
+const certificate = fs.readFileSync("./sslcert/cert.pem", "utf8");
 
-// const credentials = { key: privateKey, cert: certificate };
+const credentials = { key: privateKey, cert: certificate };
 
-// const server = https.createServer(credentials, app);
+const server = https.createServer(credentials, app);
 
-const server = app.listen(port, () => {
-  console.log(`Server is working on http://localhost:${port}`);
-});
-
-// server.listen(port, "0.0.0.0");
+server.listen(port, "0.0.0.0");
+console.log(`Server is working on https://localhost:${port}`);
 
 server.on("error", onError);
 server.on("listening", onListening);

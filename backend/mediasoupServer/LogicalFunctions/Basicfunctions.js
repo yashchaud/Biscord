@@ -43,6 +43,7 @@ async function createWebRtcTransport(router) {
     enableUdp: true,
     enableTcp: true,
     preferUdp: true,
+    initialAvailableOutgoingBitrate: 1000000,
   };
 
   try {
