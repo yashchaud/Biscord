@@ -24,5 +24,6 @@
     "prom-client": "^15.1.0",
     "socket.io": "^4.7.2",
     "underscore": "^1.13.6"
+    
   }
 }
