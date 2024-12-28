@@ -53,7 +53,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "https://www.yashportfoliohub.site",
+        target: "https://localhost:3000",
 
         changeOrigin: true,
       },

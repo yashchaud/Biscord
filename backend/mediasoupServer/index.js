@@ -10,7 +10,7 @@ const ports = 3001;
 
 var port = normalizePort(ports || "3004");
 const corsOptions = {
-  origin: "http://localhost:5173", // Specify the origin of your frontend application
+  origin: "http://localhost:3000", // Specify the origin of your frontend application
   credentials: true, // This allows cookies and credentials to be included in the requests
 };
 app.use(cors(corsOptions));
@@ -32,7 +32,7 @@ server.on("listening", onListening);
 // Initialize Socket.IO after the server is created
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: "http://localhost:3000",
     credentials: true,
   },
   pingInterval: 3000, // Send a ping every 10 seconds
