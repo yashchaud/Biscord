@@ -31,8 +31,7 @@ const Servers = ({ value }) => {
                       e.onerror = null;
                       e.target.src =
                         "https://bucket-88dwgz.s3.ap-south-1.amazonaws.com/discoddefault.jpg";
-                      console.log(e);
-                    }}
+                     }}
                   />
                 ) : (
                   <img src="https://bucket-88dwgz.s3.ap-south-1.amazonaws.com/discoddefault.jpg" />
