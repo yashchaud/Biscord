@@ -20,7 +20,7 @@ const corsOptions = {
   origin: [
     "https://localhost:3000",
     "http://localhost:3000",
-    "http://localhost:4173"
+    "http://localhost:5173"
   ],
   credentials: true, // This allows cookies and credentials to be included in the requests
 };

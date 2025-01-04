@@ -9,6 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@ui/tooltip";
+import dummyImage from "../images/nike-just-do-it (2).png"
 
 const Servers = ({ value }) => {
   console.log(value.Serverpic);
@@ -24,7 +25,8 @@ const Servers = ({ value }) => {
           <TooltipTrigger asChild>
             <Link to={`/channel/${value._id}/${value.defaultChannel}`}>
               <Cover>
-                {value.Serverpic ? (
+              <img src={{dummyImage}} />
+                {/* {value.Serverpic ? (
                   <img
                     src={`https://bucket-88dwgz.s3.ap-south-1.amazonaws.com/bucket-88dwgz/${value.Serverpic}`}
                     onError={(e) => {
@@ -35,7 +37,7 @@ const Servers = ({ value }) => {
                   />
                 ) : (
                   <img src="https://bucket-88dwgz.s3.ap-south-1.amazonaws.com/discoddefault.jpg" />
-                )}
+                )} */}
               </Cover>
             </Link>
           </TooltipTrigger>

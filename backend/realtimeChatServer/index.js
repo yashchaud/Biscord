@@ -2,6 +2,7 @@ var mongoose = require("mongoose");
 var app = require("./app");
 var debug = require("debug")("backend:server");
 var https = require("https");
+var http = require("http");
 var fs = require("fs");
 var { Server } = require("socket.io");
 var Socketsetup = require("./Socket");
@@ -34,6 +35,7 @@ var port = normalizePort(ports || "3000");
 
 // Create HTTPS Server
 var server = https.createServer(options, app);
+// var server = http.createServer(app);
 
 // Listen on Port
 server.listen(port, () => {
@@ -51,7 +53,7 @@ const io = new Server(server, {
       "https://localhost:3001",
       "https://localhost:3000",
       "http://localhost:3000",
-      "http://localhost:4173"
+      "http://localhost:5173"
     ],
     credentials: true,
   },
