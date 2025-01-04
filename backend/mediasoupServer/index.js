@@ -10,7 +10,7 @@ const ports = 3001;
 
 var port = normalizePort(ports || "3004");
 const corsOptions = {
-  origin: "http://localhost:3000", // Specify the origin of your frontend application
+  origin: "https://localhost:3000", // Specify the origin of your frontend application
   credentials: true, // This allows cookies and credentials to be included in the requests
 };
 app.use(cors(corsOptions));
