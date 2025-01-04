@@ -49,7 +49,9 @@ const io = new Server(server, {
     // origin: "https://www.yashportfoliohub.site",
     origin: [
       "https://localhost:3001",
+      "https://localhost:3000",
       "http://localhost:3000",
+      "http://localhost:4173"
     ],
     credentials: true,
   },

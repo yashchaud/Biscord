@@ -6,7 +6,7 @@ let notificationSocket;
 
 export const connectSocket = () => {
   if (!socket) {
-    socket = io("http://localhost:3000", {
+    socket = io("https://localhost:3000", {
       withCredentials: true,
       secure: true,
     });
@@ -21,20 +21,21 @@ export const getSocket = () => {
   }
   return socket;
 };
-export const connectSocketNotification = () => {
-  if (!notificationSocket) {
-    notificationSocket = io("http://localhost:3003", {
-      withCredentials: true,
-      secure: true,
-    });
-    console.log("Connecting socket...");
-  }
-};
 
-export const getNotificationSocket = () => {
-  if (!notificationSocket) {
-    console.log("Notification socket not connected");
-    connectSocketNotification();
-  }
-  return notificationSocket;
-};
+// export const connectSocketNotification = () => {
+//   if (!notificationSocket) {
+//     notificationSocket = io("http://localhost:3003", {
+//       withCredentials: true,
+//       secure: true,
+//     });
+//     console.log("Connecting socket...");
+//   }
+// };
+
+// export const getNotificationSocket = () => {
+//   if (!notificationSocket) {
+//     console.log("Notification socket not connected");
+//     connectSocketNotification();
+//   }
+//   return notificationSocket;
+// };
