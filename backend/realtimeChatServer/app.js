@@ -17,7 +17,10 @@ var threadRoutes = require("./routes/threadRouters");
 
 var app = express();
 const corsOptions = {
-  origin: "https://localhost:3001", // Specify the origin of your frontend application
+  origin: [
+    "https://localhost:3001",
+    "http://localhost:3000",
+  ], // Specify the origin of your frontend application
   credentials: true, // This allows cookies and credentials to be included in the requests
 };
 app.use(cors(corsOptions));

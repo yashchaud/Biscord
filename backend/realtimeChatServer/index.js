@@ -35,7 +35,10 @@ server.on("listening", onListening);
 const io = new Server(server, {
   cors: {
     // origin: "https://www.yashportfoliohub.site",
-    origin: "https://localhost:3001",
+    origin: [
+      "https://localhost:3001",
+      "http://localhost:3000",
+    ],
     credentials: true,
   },
   cookie: true,
