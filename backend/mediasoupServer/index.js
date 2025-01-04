@@ -32,7 +32,9 @@ server.on("listening", onListening);
 // Initialize Socket.IO after the server is created
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: [
+      "http://localhost:3000"
+     ],
     credentials: true,
   },
   pingInterval: 3000, // Send a ping every 10 seconds

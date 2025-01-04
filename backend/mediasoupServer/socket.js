@@ -47,36 +47,79 @@ module.exports = async function (io) {
       },
     },
   ];
-  // setInterval(async () => {
-  //   try {
-  //     // CPU Usage monitoring code...
-  //     for (const [workerIndex, workerData] of workermap.entries()) {
-  //       const { worker } = workerData;
-  //       const usage = await pidusage(worker.pid);
-  //       console.log(
-  //         `Worker ${workerIndex} - PID: ${worker.pid}, CPU: ${
-  //           usage.cpu
-  //         }%, Memory: ${usage.memory / 1024 / 1024} MB`
-  //       );
-  //     }
+  // Initialize Prometheus metrics
+  const metrics = {
+    cpuUsage: new promClient.Gauge({
+      name: "mediasoup_worker_cpu_usage",
+      help: "CPU usage of mediasoup workers",
+      labelNames: ["worker_id"],
+    }),
+    memoryUsage: new promClient.Gauge({
+      name: "mediasoup_worker_memory_usage",
+      help: "Memory usage of mediasoup workers in MB",
+      labelNames: ["worker_id"],
+    }),
+    transportBandwidth: new promClient.Gauge({
+      name: "mediasoup_transport_bandwidth",
+      help: "Bandwidth usage of WebRTC transports in MB",
+      labelNames: ["transport_id", "direction"],
+    }),
+    activeUsers: new promClient.Gauge({
+      name: "mediasoup_active_users",
+      help: "Number of active users in the system",
+    }),
+  };
 
-  //     for (const [transportId, transportData] of transports.entries()) {
-  //       const { transport } = transportData;
-  //       if (transport && !transport.closed) {
-  //         const stats = await transport.getStats();
-  //         stats.forEach((stat) => {
-  //           console.log(
-  //             `Transport ${transportId} - Bandwidth: ${
-  //               stat.bytesSent / 1024 / 1024
-  //             } MB sent, ${stat.bytesReceived / 1024 / 1024} MB received`
-  //           );
-  //         });
-  //       }
-  //     }
-  //   } catch (error) {
-  //     console.error("Error in bandwidth monitoring:", error);
-  //   }
-  // }, 10000); // Every 10 seconds
+  setInterval(async () => {
+    try {
+      // CPU and Memory Usage monitoring
+      for (const [workerIndex, workerData] of workermap.entries()) {
+        const { worker } = workerData;
+        const usage = await pidusage(worker.pid);
+
+        // Update Prometheus metrics
+        metrics.cpuUsage.labels(worker.pid).set(usage.cpu);
+        metrics.memoryUsage.labels(worker.pid).set(usage.memory / 1024 / 1024);
+
+        console.log(
+          `Worker ${workerIndex} - PID: ${worker.pid}, CPU: ${
+            usage.cpu
+          }%, Memory: ${usage.memory / 1024 / 1024} MB`
+        );
+      }
+
+      // Transport bandwidth monitoring
+      for (const [transportId, transportData] of transports.entries()) {
+        const { transport } = transportData;
+        if (transport && !transport.closed) {
+          const stats = await transport.getStats();
+          stats.forEach((stat) => {
+            const bytesSent = stat.bytesSent / 1024 / 1024;
+            const bytesReceived = stat.bytesReceived / 1024 / 1024;
+
+            // Update Prometheus metrics
+            metrics.transportBandwidth
+              .labels(transportId, "sent")
+              .set(bytesSent);
+            metrics.transportBandwidth
+              .labels(transportId, "received")
+              .set(bytesReceived);
+
+            console.log(
+              `Transport ${transportId} - Bandwidth: ${bytesSent} MB sent, ${bytesReceived} MB received`
+            );
+          });
+        }
+      }
+
+      // Update active users metric
+      metrics.activeUsers.set(peers.size);
+    } catch (error) {
+      console.error("Error in resource monitoring:", error);
+    }
+  }, 5000); // Every 5 seconds
+
+  
   async function createWorkers() {
     const numCores = os.cpus().length;
 
@@ -84,8 +127,8 @@ module.exports = async function (io) {
       const worker = await mediasoup.createWorker({
         logLevel: "debug",
         logTags: ["rtp", "srtp", "rtcp"],
-        rtcMinPort: 2000 + i * 100, // Adjust port range for each worker
-        rtcMaxPort: 2100 + i * 100,
+        rtcMinPort: 20000 + i * 100, // Adjust port range for each worker
+        rtcMaxPort: 20100 + i * 100,
       });
 
       // Listen for worker death.

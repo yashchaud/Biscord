@@ -46,7 +46,11 @@ server.on("listening", onListening);
 // Setup Socket.io
 const io = new Server(server, {
   cors: {
-    origin: "https://localhost:3001",
+    // origin: "https://www.yashportfoliohub.site",
+    origin: [
+      "https://localhost:3001",
+      "http://localhost:3000",
+    ],
     credentials: true,
   },
   cookie: true,

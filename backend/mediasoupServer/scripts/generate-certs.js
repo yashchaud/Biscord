@@ -1,12 +1,12 @@
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+const { execSync } = require("child_process");
+const fs = require("fs");
+const path = require("path");
 
-const CERT_DIR = path.join(__dirname, '../sslcert');
+const CERT_DIR = path.join(__dirname, "../sslcert");
 
 // Ensure the certificate directory exists
 if (!fs.existsSync(CERT_DIR)) {
-    fs.mkdirSync(CERT_DIR, { recursive: true });
+  fs.mkdirSync(CERT_DIR, { recursive: true });
 }
 
 // Generate OpenSSL config
@@ -35,30 +35,48 @@ DNS.1 = localhost
 IP.1 = 127.0.0.1
 `;
 
-const configPath = path.join(CERT_DIR, 'openssl.cnf');
+const configPath = path.join(CERT_DIR, "openssl.cnf");
 fs.writeFileSync(configPath, opensslConfig);
 
 try {
-    // Generate private key
-    execSync(`openssl genpkey -algorithm RSA -out "${path.join(CERT_DIR, 'key.pem')}" -pkeyopt rsa_keygen_bits:2048`);
+  // Generate private key
+  execSync(
+    `openssl genpkey -algorithm RSA -out "${path.join(
+      CERT_DIR,
+      "key.pem"
+    )}" -pkeyopt rsa_keygen_bits:2048`
+  );
 
-    // Generate certificate
-    execSync(`openssl req -x509 -new -nodes -key "${path.join(CERT_DIR, 'key.pem')}" -sha256 -days 365 -out "${path.join(CERT_DIR, 'cert.pem')}" -config "${configPath}"`);
+  // Generate certificate
+  execSync(
+    `openssl req -x509 -new -nodes -key "${path.join(
+      CERT_DIR,
+      "key.pem"
+    )}" -sha256 -days 365 -out "${path.join(
+      CERT_DIR,
+      "cert.pem"
+    )}" -config "${configPath}"`
+  );
 
-    console.log('SSL certificates generated successfully!');
-    console.log('');
-    console.log('Next steps:');
-    console.log('1. Install the certificate in your browser:');
-    console.log(`   - Chrome: Settings -> Privacy and security -> Security -> Manage certificates -> Import`);
-    console.log(`   - Firefox: Settings -> Privacy & Security -> View Certificates -> Import`);
-    console.log('2. Import cert.pem from the sslcert directory');
-    console.log('');
-    console.log('Note: You may need to restart your browser after importing the certificate.');
-
+  console.log("SSL certificates generated successfully!");
+  console.log("");
+  console.log("Next steps:");
+  console.log("1. Install the certificate in your browser:");
+  console.log(
+    `   - Chrome: Settings -> Privacy and security -> Security -> Manage certificates -> Import`
+  );
+  console.log(
+    `   - Firefox: Settings -> Privacy & Security -> View Certificates -> Import`
+  );
+  console.log("2. Import cert.pem from the sslcert directory");
+  console.log("");
+  console.log(
+    "Note: You may need to restart your browser after importing the certificate."
+  );
 } catch (error) {
-    console.error('Error generating certificates:', error.message);
-    process.exit(1);
+  console.error("Error generating certificates:", error.message);
+  process.exit(1);
 }
 
 // Clean up config file
-fs.unlinkSync(configPath); 
+fs.unlinkSync(configPath);
