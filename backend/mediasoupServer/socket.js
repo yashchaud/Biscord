@@ -15,9 +15,9 @@ const {
 
 module.exports = async function (io) {
   // Initialize Redis client
-  // const redisClient = redis.createClient();
-  // redisClient.on("error", (err) => console.error("Redis Client Error:", err));
-  // redisClient.connect();
+  const redisClient = redis.createClient();
+  redisClient.on("error", (err) => console.error("Redis Client Error:", err));
+  redisClient.connect();
 
   const roomQueue = new AwaitQueue();
 
@@ -828,18 +828,18 @@ module.exports = async function (io) {
 
     socket.on("disconnect", () => {
       console.log("peer disconnected");
-      
+
       // Get all consumers associated with this socket
       const userConsumers = consumers.filter((c) => c.socketId === socket.id);
       const consumerIds = userConsumers.map((c) => c.consumer.id);
 
       // Get all producers associated with this socket
       const userProducers = producers.filter((p) => p.socketId === socket.id);
-      
+
       // Notify others about each producer that's being closed
       userProducers.forEach((producerData) => {
         socket.broadcast.to(socket.roomName).emit("producer-closed", {
-          remoteProducerId: producerData.producer.id
+          remoteProducerId: producerData.producer.id,
         });
         producerData.producer.close();
       });

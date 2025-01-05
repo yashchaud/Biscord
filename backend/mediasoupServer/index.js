@@ -3,7 +3,6 @@ const https = require("https");
 const { Server } = require("socket.io");
 const Socketsetup = require("./socket");
 const fs = require("fs");
-const cors = require("cors");
 const dotenv = require("dotenv");
 var express = require("express");
 
