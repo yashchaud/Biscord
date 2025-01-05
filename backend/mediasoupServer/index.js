@@ -8,11 +8,13 @@ const cors = require("cors");
 
 const ports = 3001;
 
-var port = normalizePort(ports || "3004");
+var port = normalizePort(ports || "3001");
+
 const corsOptions = {
   origin: "https://localhost:3000", // Specify the origin of your frontend application
   credentials: true, // This allows cookies and credentials to be included in the requests
 };
+
 app.use(cors(corsOptions));
 app.set("port", port);
 
@@ -38,6 +40,7 @@ const io = new Server(server, {
   pingInterval: 3000, // Send a ping every 10 seconds
   pingTimeout: 3000,
 });
+
 Socketsetup(io);
 
 function normalizePort(val) {
