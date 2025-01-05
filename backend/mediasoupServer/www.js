@@ -119,7 +119,6 @@ module.exports = async function (io) {
     }
   }, 5000); // Every 5 seconds
 
-  
   async function createWorkers() {
     const numCores = os.cpus().length;
 
