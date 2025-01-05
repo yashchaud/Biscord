@@ -15,9 +15,9 @@ const {
 
 module.exports = async function (io) {
   // Initialize Redis client
-  const redisClient = redis.createClient();
-  redisClient.on("error", (err) => console.error("Redis Client Error:", err));
-  redisClient.connect();
+  // const redisClient = redis.createClient();
+  // redisClient.on("error", (err) => console.error("Redis Client Error:", err));
+  // redisClient.connect();
 
   const roomQueue = new AwaitQueue();
 
