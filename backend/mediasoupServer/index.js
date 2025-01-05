@@ -16,12 +16,12 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.set("port", port);
 
-const privateKey = fs.readFileSync("./sslcert/key.pem", "utf8");
-const certificate = fs.readFileSync("./sslcert/cert.pem", "utf8");
+const privateKey = fs.readFileSync(process.env.PRIVATEKEY);
+const certificate = fs.readFileSync(process.env.CERTIFICATE);
 
-const credentials = { key: privateKey, cert: certificate };
+const options = { key: privateKey, cert: certificate };
 
-const server = https.createServer(credentials, app);
+const server = https.createServer(options, app);
 
 server.listen(port, "0.0.0.0");
 console.log(`Server is working on https://localhost:${port}`);
@@ -32,9 +32,7 @@ server.on("listening", onListening);
 // Initialize Socket.IO after the server is created
 const io = new Server(server, {
   cors: {
-    origin: [
-      "http://localhost:3000"
-     ],
+    origin: ["https://localhost:3000"],
     credentials: true,
   },
   pingInterval: 3000, // Send a ping every 10 seconds
@@ -55,6 +53,7 @@ function normalizePort(val) {
 
   return false;
 }
+
 function onError(error) {
   if (error.syscall !== "listen") {
     throw error;

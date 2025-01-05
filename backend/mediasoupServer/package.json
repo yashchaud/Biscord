@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "start": "nodemon index.js"
-    
   },
   "dependencies": {
     "awaitqueue": "^3.0.2",
@@ -25,6 +24,7 @@
     "os-utils": "^0.0.14",
     "pidusage": "^2.0.21",
     "prom-client": "^15.1.0",
+    "redis": "^4.7.0",
     "socket.io": "^4.7.2",
     "socket.io-client": "^4.7.2",
     "underscore": "^1.13.6"

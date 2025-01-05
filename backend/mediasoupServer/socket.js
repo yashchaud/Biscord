@@ -5,6 +5,7 @@ const os = require("os");
 const promClient = require("prom-client");
 const axios = require("axios");
 var pidusage = require("pidusage");
+const redis = require("redis");
 
 const {
   createWorker,
@@ -13,6 +14,11 @@ const {
 } = require("./LogicalFunctions/Basicfunctions");
 
 module.exports = async function (io) {
+  // Initialize Redis client
+  const redisClient = redis.createClient();
+  redisClient.on("error", (err) => console.error("Redis Client Error:", err));
+  redisClient.connect();
+
   const roomQueue = new AwaitQueue();
 
   let worker;
@@ -31,6 +37,7 @@ module.exports = async function (io) {
   const participantRouterMap = new Map();
   const producerRouterMap = new Map();
   let Trakpiped = new Map();
+
   const mediaCodecs = [
     {
       kind: "audio",
@@ -47,6 +54,7 @@ module.exports = async function (io) {
       },
     },
   ];
+
   // Initialize Prometheus metrics
   const metrics = {
     cpuUsage: new promClient.Gauge({
@@ -119,7 +127,6 @@ module.exports = async function (io) {
     }
   }, 5000); // Every 5 seconds
 
-  
   async function createWorkers() {
     const numCores = os.cpus().length;
 
@@ -150,32 +157,39 @@ module.exports = async function (io) {
   }
 
   await createWorkers();
+
   function ChangeRouterindex(index) {
     Currentindex = index;
     return Currentindex;
   }
+
   function FetchCurrentindex() {
     return Currentindex;
   }
 
-  const createRoom = async (roomName, socketId, i) => {
-    return roomQueue.push(async () => {
-      let room = rooms.get(roomName);
+  async function createRoom(roomName, socketId, i) {
+    try {
+      return roomQueue.push(async () => {
+        let room = rooms.get(roomName);
 
-      let peers = [];
-      if (!room) {
-        const router = await workermap.get(i).router;
-        room = { router, peers: new Set([socketId]) };
-        rooms.set(roomName, room);
-      } else {
-        room.peers.add(socketId);
-      }
+        let peers = [];
+        if (!room) {
+          const router = await workermap.get(i).router;
+          room = { router, peers: new Set([socketId]) };
+          rooms.set(roomName, room);
+        } else {
+          room.peers.add(socketId);
+        }
 
-      console.log(`This is Room Router ${room.router} ${rooms}`);
+        console.log(`This is Room Router ${room.router} ${rooms}`);
 
-      return room.router;
-    });
-  };
+        return room.router;
+      });
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
   function getSourceRouterForProducer(producerId) {
     const routerIndex = producerRouterMap.get(producerId);
     if (routerIndex !== undefined) {
@@ -268,6 +282,7 @@ module.exports = async function (io) {
       }
     });
   };
+
   const pipeProducer = async (producerId, producerSocket, socket) => {
     if (alreadyPipedProducersforcheck.has(producerId)) return;
     try {
@@ -389,6 +404,7 @@ module.exports = async function (io) {
       await peer?.transports?.push(transport.id);
       peers.set(socket.id, peer);
     };
+
     const addProducer = async (producer, roomName, kind) => {
       if (producers.some((p) => p.producer.id === producer.id)) {
         console.warn(`Producer ${producer.id} already exists.`);
@@ -465,6 +481,7 @@ module.exports = async function (io) {
         producerStates,
       });
     });
+
     socket.on("getRouterindex", async ({ producerid }, callback) => {
       console.log(producerid);
       callback({

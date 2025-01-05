@@ -23,15 +23,15 @@ db.once("open", function () {
   console.log("Connected to MongoDB");
 });
 
-// Load SSL Certificate and Key
-const options = {
-  key: fs.readFileSync("./sslcert/key.pem"), // Replace with the actual path
-  cert: fs.readFileSync("./sslcert/cert.pem") // Replace with the actual path
-};
-
 // Define Port
 const ports = 3000;
 var port = normalizePort(ports || "3000");
+
+const privateKey = fs.readFileSync(process.env.PRIVATEKEY);
+const certificate = fs.readFileSync(process.env.CERTIFICATE);
+
+// Load SSL Certificate and Key
+const options = { key: privateKey, cert: certificate };
 
 // Create HTTPS Server
 var server = https.createServer(options, app);
@@ -53,7 +53,7 @@ const io = new Server(server, {
       "https://localhost:3001",
       "https://localhost:3000",
       "http://localhost:3000",
-      "http://localhost:5173"
+      "http://localhost:5173",
     ],
     credentials: true,
   },
