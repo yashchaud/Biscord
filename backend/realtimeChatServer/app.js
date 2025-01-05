@@ -20,8 +20,8 @@ const corsOptions = {
   origin: [
     "https://localhost:3000",
     "http://localhost:3000",
-    "http://localhost:5173"
-  ],
+    "http://localhost:5173",
+  ], // Specify the origin of your frontend application
   credentials: true, // This allows cookies and credentials to be included in the requests
 };
 app.use(cors(corsOptions));

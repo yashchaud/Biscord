@@ -518,7 +518,7 @@ const Mainview = () => {
 
       if (Array.isArray(consumerIds) && consumerIds.length > 0) {
         setConsumerTracks((prevTracks) =>
-          prevTracks.filter((track) => consumerIds.includes(track.consumer.id))
+          prevTracks.filter((track) => !consumerIds.includes(track.consumer.id))
         );
 
         consumerIds.forEach((consumerId) => {
@@ -529,12 +529,11 @@ const Mainview = () => {
             consumerToClose.consumerTransport.close();
             consumerToClose.consumer.close();
           }
-          consumerTransports.current = consumerTransports.current.filter(
-            (transportData) => transportData.consumer.id !== consumerId
-          );
         });
-      } else {
-        console.warn("No valid consumer IDs received for disconnection.");
+        
+        consumerTransports.current = consumerTransports.current.filter(
+          (transportData) => !consumerIds.includes(transportData.consumer.id)
+        );
       }
     });
     return () => {
