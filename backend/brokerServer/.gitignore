@@ -1,9 +1,6 @@
 /node_modules
  
-/Readme.md
-/.gitignore
-sslcert/
-
 .env
+.env.example
 .env.local
 .env.staging

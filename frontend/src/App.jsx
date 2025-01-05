@@ -40,7 +40,7 @@ import Register from "./components/Test/Register";
 import InvitePage from "./components/InviteLink/InvitePage";
 import Editprofile from "./components/EditProfile/Editprofile";
 
-import { connectSocketNotification, getNotificationSocket } from "./socket";
+// import { connectSocketNotification, getNotificationSocket } from "./socket";
 import Cookie from "js-cookie";
 const App = () => {
   const user = Cookie.get("jwt");
@@ -130,20 +130,20 @@ const App = () => {
   }, [settogglesidebar, currentWidth]);
 
   //Notification logic
-  useEffect(() => {
-    connectSocket();
-    // connectSocketNotification();
-    const notificationSocket = getNotificationSocket();
-    notificationSocket.on(
-      "new_notification",
-      (message) => {
-        // toast(message, { duration: 1000 });
-        console.log(message);
-        showNotification(message);
-      },
-      500
-    );
-  }, []);
+  // useEffect(() => {
+  //   connectSocket();
+  //   // connectSocketNotification();
+  //   const notificationSocket = getNotificationSocket();
+  //   notificationSocket.on(
+  //     "new_notification",
+  //     (message) => {
+  //       // toast(message, { duration: 1000 });
+  //       console.log(message);
+  //       showNotification(message);
+  //     },
+  //     500
+  //   );
+  // }, []);
 
   return (
     <Swipeable
