@@ -1,27 +1,19 @@
-var app = require("./app");
-var debug = require("debug")("backend:server");
+const debug = require("debug")("backend:server");
 const https = require("https");
-var { Server } = require("socket.io");
-var Socketsetup = require("./socket");
+const { Server } = require("socket.io");
+const Socketsetup = require("./socket");
 const fs = require("fs");
 const cors = require("cors");
-const dotenv = require('dotenv');
+const dotenv = require("dotenv");
+var express = require("express");
+
+const app = express();
 
 dotenv.config();
 
 const ports = 3001;
 
-var port = normalizePort(ports || "3001");
-
-const corsOptions = {
-  origin: [
-    "http://localhost:3000",
-   ], // Specify the origin of your frontend application
-  credentials: true, // This allows cookies and credentials to be included in the requests
-};
-
-app.use(cors(corsOptions));
-app.set("port", port);
+const port = normalizePort(ports || "3001");
 
 const privateKey = fs.readFileSync(process.env.PRIVATEKEY);
 const certificate = fs.readFileSync(process.env.CERTIFICATE);
@@ -39,10 +31,7 @@ server.on("listening", onListening);
 // Initialize Socket.IO after the server is created
 const io = new Server(server, {
   cors: {
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:5173",
-     ],
+    origin: ["http://localhost:3000", "http://localhost:5173"],
     credentials: true,
   },
   pingInterval: 3000, // Send a ping every 10 seconds
