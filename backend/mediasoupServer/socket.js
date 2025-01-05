@@ -3,28 +3,38 @@ const mediasoup = require("mediasoup");
 const { AwaitQueue } = require("awaitqueue");
 const os = require("os");
 const promClient = require("prom-client");
-const axios = require("axios");
-var pidusage = require("pidusage");
-const redis = require("redis");
-
+const pidusage = require("pidusage");
 const {
   createWorker,
   createWebRtcTransport,
   pipeProducersBetweenRouters,
 } = require("./LogicalFunctions/Basicfunctions");
 
+const {
+  // RoomQueue
+  getRoomQueue,
+  pushToRoomQueue,
+  deleteFromRoomQueue,
+  // Workermap
+  getWorkermap,
+  addToWorkermap,
+  deleteFromWorkermap,
+  // Rooms
+  getRooms,
+  addToRooms,
+  deleteFromRooms,
+  // Peers
+  getPeers,
+  addToPeers,
+  deleteFromPeers,
+} = require("./utils/states");
+
+const { setRedisData } = require("./utils/redis");
+
+const SERVER_ID = `mediasoup_server_${process.pid}`;
+
 module.exports = async function (io) {
-  // Initialize Redis client
-  const redisClient = redis.createClient();
-  redisClient.on("error", (err) => console.error("Redis Client Error:", err));
-  redisClient.connect();
-
-  const roomQueue = new AwaitQueue();
-
-  let worker;
   let workermap = new Map();
-  let rooms = new Map(); // { roomName1: { Router, rooms: [ sicketId1, ... ] }, ...}
-  let peers = new Map(); // { socketId1: { roomName1, socket, transports = [id1, id2,] }, producers = [id1, id2,] }, consumers = [id1, id2,], peerDetails }, ...}
   let transports = new Map(); // [ { socketId1, roomName1, transport, consumer }, ... ]
   let producers = []; // [ { socketId1, roomName1, producer, }, ... ]
   let consumers = []; // [ { socketId1, roomName1, consumer, }, ... ]
@@ -80,53 +90,75 @@ module.exports = async function (io) {
 
   setInterval(async () => {
     try {
-      // CPU and Memory Usage monitoring
-      for (const [workerIndex, workerData] of workermap.entries()) {
+      // CPU and Memory Usage Monitoring
+      for (const [workerIndex, workerData] of workermap.entries) {
         const { worker } = workerData;
-        const usage = await pidusage(worker.pid);
 
-        // Update Prometheus metrics
-        metrics.cpuUsage.labels(worker.pid).set(usage.cpu);
-        metrics.memoryUsage.labels(worker.pid).set(usage.memory / 1024 / 1024);
+        try {
+          const usage = await pidusage(worker.pid);
 
-        console.log(
-          `Worker ${workerIndex} - PID: ${worker.pid}, CPU: ${
-            usage.cpu
-          }%, Memory: ${usage.memory / 1024 / 1024} MB`
-        );
-      }
+          // Update Prometheus metrics for CPU and Memory usage
+          metrics.cpuUsage.labels(worker.pid).set(usage.cpu);
+          metrics.memoryUsage
+            .labels(worker.pid)
+            .set(usage.memory / 1024 / 1024); // Convert to MB
 
-      // Transport bandwidth monitoring
-      for (const [transportId, transportData] of transports.entries()) {
-        const { transport } = transportData;
-        if (transport && !transport.closed) {
-          const stats = await transport.getStats();
-          stats.forEach((stat) => {
-            const bytesSent = stat.bytesSent / 1024 / 1024;
-            const bytesReceived = stat.bytesReceived / 1024 / 1024;
-
-            // Update Prometheus metrics
-            metrics.transportBandwidth
-              .labels(transportId, "sent")
-              .set(bytesSent);
-            metrics.transportBandwidth
-              .labels(transportId, "received")
-              .set(bytesReceived);
-
-            console.log(
-              `Transport ${transportId} - Bandwidth: ${bytesSent} MB sent, ${bytesReceived} MB received`
-            );
-          });
+          console.log(
+            `Worker ${workerIndex} - PID: ${worker.pid}, CPU: ${
+              usage.cpu
+            }%, Memory: ${usage.memory / 1024 / 1024} MB`
+          );
+        } catch (usageError) {
+          console.error(
+            `Failed to get usage for worker ${workerIndex}:`,
+            usageError.message
+          );
         }
       }
 
-      // Update active users metric
+      // Transport Bandwidth Monitoring
+      for (const [transportId, transportData] of transports.entries()) {
+        const { transport } = transportData;
+
+        if (transport && !transport.closed) {
+          try {
+            const stats = await transport.getStats();
+
+            stats.forEach((stat) => {
+              const bytesSent = stat.bytesSent / 1024 / 1024; // Convert to MB
+              const bytesReceived = stat.bytesReceived / 1024 / 1024; // Convert to MB
+
+              // Update Prometheus metrics for transport bandwidth
+              metrics.transportBandwidth
+                .labels(transportId, "sent")
+                .set(bytesSent);
+              metrics.transportBandwidth
+                .labels(transportId, "received")
+                .set(bytesReceived);
+
+              console.log(
+                `Transport ${transportId} - Bandwidth: ${bytesSent} MB sent, ${bytesReceived} MB received`
+              );
+            });
+          } catch (statsError) {
+            console.error(
+              `Failed to get stats for transport ${transportId}:`,
+              statsError.message
+            );
+          }
+        }
+      }
+
+      // Update active users metric (peers map size)
+      const parsedPeers = await getPeers();
+      peers = new Map(Object.entries(parsedPeers));
       metrics.activeUsers.set(peers.size);
     } catch (error) {
-      console.error("Error in resource monitoring:", error);
+      console.error("Error in resource monitoring:", error.message);
     }
-  }, 5000); // Every 5 seconds
+  }, 5000); // Runs every 5 seconds
 
+  // Worker creation and storing worker data in Redis
   async function createWorkers() {
     const numCores = os.cpus().length;
 
@@ -134,22 +166,24 @@ module.exports = async function (io) {
       const worker = await mediasoup.createWorker({
         logLevel: "debug",
         logTags: ["rtp", "srtp", "rtcp"],
-        rtcMinPort: 20000 + i * 100, // Adjust port range for each worker
+        rtcMinPort: 20000 + i * 100,
         rtcMaxPort: 20100 + i * 100,
       });
 
-      // Listen for worker death.
-      worker.on("died", () => {
+      worker.on("died", async () => {
         console.error(`mediasoup worker ${worker.pid} has died`);
         setTimeout(() => process.exit(1), 2000);
       });
 
-      // After worker creation, create a router for this worker.
       const router = await worker.createRouter({ mediaCodecs });
 
-      // Initialize the worker's load to 0, store the worker and its router.
       workermap.set(i, { worker, router });
+
+      // Initialize worker load
+      await setRedisData(`${SERVER_ID}:workerLoad:${worker.pid}`, 0);
+
       ChangeRouterindex(0);
+
       console.log(
         `Worker created with PID: ${worker.pid}, and its router initialized.`
       );
@@ -169,24 +203,30 @@ module.exports = async function (io) {
 
   async function createRoom(roomName, socketId, i) {
     try {
-      return roomQueue.push(async () => {
-        let room = rooms.get(roomName);
+      const parsedRooms = await getRooms();
 
-        let peers = [];
-        if (!room) {
-          const router = await workermap.get(i).router;
-          room = { router, peers: new Set([socketId]) };
-          rooms.set(roomName, room);
-        } else {
-          room.peers.add(socketId);
-        }
+      // Ensure parsedRooms is an object
+      const rooms = parsedRooms
+        ? new Map(Object.entries(parsedRooms))
+        : new Map();
 
-        console.log(`This is Room Router ${room.router} ${rooms}`);
+      let room = rooms.get(roomName);
 
-        return room.router;
-      });
+      if (!room) {
+        const router = await workermap.get(i).router;
+        room = { router, peers: new Set([socketId]) };
+        await addToRooms(roomName, room);
+      } else {
+        room.peers.add(socketId);
+        await addToRooms(roomName, room);
+      }
+
+      console.log(`This is Room Router ${room.router}`, rooms);
+
+      return room.router;
     } catch (error) {
-      console.log(error);
+      console.error(error);
+      throw error;
     }
   }
 
@@ -201,16 +241,22 @@ module.exports = async function (io) {
   }
 
   async function pipeExistingProducersToTargetRouter(socket) {
-    console.log("We in here");
+    console.log("pipeExistingProducersToTargetRouter");
+    const parsedPeers = await getPeers();
+    const peers = new Map(Object.entries(parsedPeers));
+
     for (let producerData of producers) {
       if (!producerData.producer.id) continue;
       const sourceRouterindex = producerRouterMap.get(producerData.producer.id);
       const sourceRouter = workermap.get(sourceRouterindex).router;
       console.log("pipetoall ", sourceRouter);
+
       if (alreadyPipedProducersforcheck.has(producerData.producer.id)) {
         return;
       }
+
       if (!sourceRouter) continue;
+
       let targetRouter;
       if (Currentindex === 1) {
         targetRouter = workermap.get(0).router;
@@ -218,11 +264,14 @@ module.exports = async function (io) {
         targetRouter = workermap.get(1).router;
       }
       console.log("Insideia ", targetRouter);
-      const producerSocket = peers.get(producerData.socketId).socket;
+
+      const producerSocket = peers.get(producerData.socketId).socketId;
 
       if (targetRouter === sourceRouter) continue;
+
       if (alreadyPipedProducersforcheck.has(producerData.producer.id)) {
-        console.log("this is already poped");
+        console.log("this is already piped");
+        continue;
       }
 
       // Check if the producer is not already piped to this target router
@@ -235,14 +284,18 @@ module.exports = async function (io) {
             alreadyPipedProducersforcheck,
           });
         console.log(pipeProducer);
+
         if (!pipeProducer || !pipeConsumer) continue;
-        // await Broadcast(pipeConsumer, Currentindex);
+
+        // Emit the new producer piped event to the socket
         await socket.emit("new-producer-piped", {
           producerId: pipeConsumer,
           targetRouterindex: Currentindex,
         });
-        Trakpiped.set(pipeConsumer, targetRouter);
-        alreadyPipedProducer.add(pipeConsumer);
+
+        // Update Trakpiped and alreadyPipedProducer in Redis
+        await addToTrakpiped(pipeConsumer, targetRouter);
+        await addToAlreadyPipedProducer(pipeConsumer);
       }
     }
   }
@@ -259,8 +312,12 @@ module.exports = async function (io) {
     return null;
   };
 
-  const informConsumers = (roomName, socketId, id, socket) => {
+  const informConsumers = async (roomName, socketId, id, socket) => {
     console.log(`just joined, id ${id} ${roomName}, ${socketId}`);
+
+    // Fetch peers from Redis
+    const parsedPeers = await getPeers();
+    const peers = new Map(Object.entries(parsedPeers));
 
     producers.forEach((producerData) => {
       if (
@@ -268,13 +325,16 @@ module.exports = async function (io) {
         producerData.roomName === roomName
       ) {
         if (peers.has(producerData.socketId)) {
-          const producerSocket = peers.get(producerData.socketId).socket;
+          const producerSocket = peers.get(producerData.socketId).socketId;
           console.log("Inform", producerData.producer.id, id);
+
+          // Emit the 'new-producer' event to all clients in the room
           socket.broadcast.to(roomName).emit("new-producer", {
             producerId: id,
             targetRouterindex: 0,
           });
 
+          // Pipe the producer
           pipeProducer(id, producerSocket, socket);
         } else {
           console.log(`Producer not found in peers: ${producerData.socketId}`);
@@ -285,13 +345,23 @@ module.exports = async function (io) {
 
   const pipeProducer = async (producerId, producerSocket, socket) => {
     if (alreadyPipedProducersforcheck.has(producerId)) return;
+
     try {
       let targetRouterIndex;
+
       if (Currentindex === 1) {
         const sourceRouterIndex = producerRouterMap.get(producerId);
-        const sourceRouter = workermap.get(sourceRouterIndex).router;
 
-        const targetRouter = workermap.get(0).router;
+        const sourceRouter = workermap.get(sourceRouterIndex)?.router;
+
+        const targetRouter = workermap.get(0)?.router; // Target router is always from worker 0 (or adjust if needed)
+
+        // Check if sourceRouter or targetRouter is undefined
+        if (!sourceRouter || !targetRouter) {
+          console.error("Source or target router not found in workermap");
+          return;
+        }
+
         if (sourceRouter === targetRouter) return;
         if (!alreadyPipedProducersforcheck.has(producerId)) {
           const { pipeConsumer, pipeProducer } =
@@ -302,6 +372,7 @@ module.exports = async function (io) {
               alreadyPipedProducersforcheck,
               producerSocket,
             });
+
           await pipeProducer.on("transportclose", () => {
             console.log("transport for this producer closed ");
             pipeProducer.close();
@@ -312,18 +383,23 @@ module.exports = async function (io) {
           }
           console.log("event is being triggered", pipeConsumer);
 
-          await io.to(socket.roomName).emit("new-producer-piped", {
+          await producerSocket.emit("new-producer-piped", {
             producerId: pipeConsumer.id,
             targetRouterindex: Currentindex,
           });
           Trakpiped.set(pipeConsumer, targetRouter);
 
           alreadyPipedProducer.add(pipeConsumer.id);
+
+          // Save updated state to Redis
+          await addToTrakpiped(pipeConsumer.id, targetRouter);
+          await addToAlreadyPipedProducer(pipeConsumer.id);
         }
         return;
       } else {
         targetRouterIndex = 1;
       }
+
       console.log("in pipeProducer", producerId);
       const sourceRouterIndex = producerRouterMap.get(producerId);
       if (sourceRouterIndex === undefined) {
@@ -364,6 +440,10 @@ module.exports = async function (io) {
       alreadyPipedProducer.add(pipeConsumer.id);
 
       Roomfull = true;
+
+      // Save updated state to Redis
+      await addToTrakpiped(pipeConsumer.id, targetRouter);
+      await addToAlreadyPipedProducer(pipeConsumer.id);
     } catch (error) {
       console.error("Error in processing:", error.message);
       Roomfull = false;
@@ -392,17 +472,31 @@ module.exports = async function (io) {
     };
 
     const addTransport = async (transport, roomName, consumer) => {
-      transports.set(transport.id, {
-        socketId: socket.id,
-        transport,
-        roomName,
-        consumer,
-      });
+      // Retrieve peers from Redis
+      const parsedPeers = await getPeers();
+      const peers = new Map(Object.entries(parsedPeers));
 
-      let peer = peers.get(socket.id);
+      // Get the peer associated with the socket ID
+      let peer = peers[socket.id];
 
-      await peer?.transports?.push(transport.id);
-      peers.set(socket.id, peer);
+      if (peer) {
+        // Update peer's transports array in memory
+        if (!peer.transports) peer.transports = [];
+        peer.transports.push(transport.id);
+
+        // Save updated peer to Redis
+        await addToPeers(socket.id, peer);
+
+        // Save transport locally
+        transports.set(transport.id, {
+          socketId: socket.id,
+          transport,
+          roomName,
+          consumer,
+        });
+      } else {
+        console.log(`Peer with socket ID ${socket.id} not found in Redis.`);
+      }
     };
 
     const addProducer = async (producer, roomName, kind) => {
@@ -417,12 +511,28 @@ module.exports = async function (io) {
       ];
       console.log(producer.id);
 
+      // Fetch peer from Redis
+      const parsedPeers = await getPeers();
+      const peers = new Map(Object.entries(parsedPeers));
+
       let peer = peers.get(socket.id);
+
+      if (!peer) {
+        console.error(`Peer with socket ID ${socket.id} not found in Redis.`);
+        return;
+      }
+
+      // Ensure the producers array exists for the peer
+      if (!peer.producers) peer.producers = [];
+
+      // Add producer id to the peer's producers array
       peer.producers.push(producer.id);
-      peers.set(socket.id, peer);
+
+      // Update the peer's data in Redis
+      await addToPeers(socket.id, peer);
     };
 
-    const addConsumer = (consumer, roomName) => {
+    const addConsumer = async (consumer, roomName) => {
       if (consumers.some((c) => c.consumer.id === consumer.id)) {
         console.warn(`Consumer ${consumer.id} already exists.`);
         return;
@@ -430,12 +540,32 @@ module.exports = async function (io) {
 
       consumers = [...consumers, { socketId: socket.id, consumer, roomName }];
 
+      // Fetch peer from Redis
+      const parsedPeers = await getPeers();
+      const peers = new Map(Object.entries(parsedPeers));
+
       let peer = peers.get(socket.id);
+
+      if (!peer) {
+        console.error(`Peer with socket ID ${socket.id} not found in Redis.`);
+        return;
+      }
+
+      // Ensure the consumers array exists for the peer
+      if (!peer.consumers) peer.consumers = [];
+
+      // Add consumer id to the peer's consumers array
       peer.consumers.push(consumer.id);
-      peers.set(socket.id, peer);
+
+      // Update the peer's data in Redis
+      await addToPeers(socket.id, peer);
     };
 
     socket.on("joinRoom", async ({ roomName }, callback) => {
+      console.log("joinRoom");
+      const parsedPeers = await getPeers();
+      const peers = new Map(Object.entries(parsedPeers));
+
       if (peers.has(socket.id)) {
         console.warn(`Socket ${socket.id} is already in a room.`);
         return callback({ error: "You are already in a room." });
@@ -448,14 +578,16 @@ module.exports = async function (io) {
       console.log("Status of room", Roomfull);
       router1 = await createRoom(roomName, socket.id, 0);
       router2 = await createRoom(roomName, socket.id, 1);
+
       const Routers = [router1.rtpCapabilities, router2.rtpCapabilities];
       participantRouterMap.set(socket.id, Currentindex);
 
       if (Remoteindex > 10) {
         ChangeRouterindex(1);
       }
-      peers.set(socket.id, {
-        socket,
+
+      let peerData = {
+        sockerId: socket.id,
         roomName,
         transports: [],
         producers: [],
@@ -464,7 +596,10 @@ module.exports = async function (io) {
           name: "",
           isAdmin: false,
         },
-      });
+      };
+
+      await addToPeers(socket.id, peerData);
+
       socket.roomName = roomName; // Add room name to the socket
       socket.join(roomName); // Join the socket to the room
       let rpa = router1.rtpCapabilities;
@@ -475,6 +610,8 @@ module.exports = async function (io) {
           producerId: producerData.producer.id,
           isPaused: producerData.producer.paused,
         }));
+
+      console.log(Routers);
       callback({
         Routers,
         Currentindex,
@@ -483,7 +620,7 @@ module.exports = async function (io) {
     });
 
     socket.on("getRouterindex", async ({ producerid }, callback) => {
-      console.log(producerid);
+      console.log("getRouterindex", producerid);
       callback({
         index: 1,
       });
@@ -498,14 +635,18 @@ module.exports = async function (io) {
     socket.on(
       "createWebRtcTransport",
       async ({ consumer, RouterId }, callback) => {
+        console.log("createWebRtcTransport");
+
+        const parsedPeers = await getPeers();
+        const peers = new Map(Object.entries(parsedPeers));
+
         const peer = peers.get(socket.id);
+
         if (!peer) {
           console.error(`No peer found for socket ID: ${socket.id}`);
           return; // or handle this case as appropriate for your application
         }
         const roomName = peer.roomName;
-
-        // router = rooms.get(roomName).router;
 
         let router = workermap.get(Currentindex).router;
 
@@ -537,6 +678,10 @@ module.exports = async function (io) {
     );
 
     socket.on("getProducers", async (callback) => {
+      console.log("getProducers");
+      const parsedPeers = await getPeers();
+      const peers = new Map(Object.entries(parsedPeers));
+
       const roomName = peers.get(socket.id)?.roomName;
       console.log(producers);
       let producerList = [];
@@ -560,12 +705,17 @@ module.exports = async function (io) {
     socket.on(
       "transport-produce",
       async ({ kind, rtpParameters, appData }, callback) => {
+        console.log("transport-produce");
+        const parsedPeers = await getPeers();
+        const peers = new Map(Object.entries(parsedPeers));
+
         const peer = peers.get(socket.id);
         if (!peer) {
           console.log(`Peer does not exist for socket ID: ${socket.id}`);
           return callback({ error: "Peer not found." });
         }
-        return roomQueue.push(async () => {
+
+        return new Promise(async (resolve, reject) => {
           try {
             let producer;
 
@@ -612,12 +762,32 @@ module.exports = async function (io) {
 
             console.log(producers.length);
 
+            // Push task to Redis roomQueue
+            const task = {
+              socketId: socket.id,
+              taskStatus: "completed",
+              producerId: producer.id,
+            };
+            await pushToRoomQueue(task); // Push the task to the Redis queue
+
             callback({
               id: producer.id,
               producersExist: producers.length > 1 ? true : false,
             });
+
+            resolve();
           } catch (error) {
             console.log(error);
+
+            // If an error occurs, push failure status to the queue
+            const task = {
+              socketId: socket.id,
+              taskStatus: "failed",
+              error: error.message,
+            };
+            await pushToRoomQueue(task); // Push the failed task to the Redis queue
+
+            reject(error);
           }
         });
       }
@@ -626,6 +796,7 @@ module.exports = async function (io) {
     socket.on(
       "transport-recv-connect",
       async ({ dtlsParameters, serverConsumerTransportId }) => {
+        console.log("transport-recv-connect");
         const consumerTransport = transports.get(
           serverConsumerTransportId
         )?.transport;
@@ -654,6 +825,10 @@ module.exports = async function (io) {
         callback
       ) => {
         try {
+          console.log("consume");
+          const parsedPeers = await getPeers();
+          const peers = new Map(Object.entries(parsedPeers));
+
           const roomName = peers.get(socket.id).roomName;
           let router;
           if (alreadyPipedProducer.has(remoteProducerId)) {
@@ -826,7 +1001,7 @@ module.exports = async function (io) {
       }
     );
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
       console.log("peer disconnected");
 
       // Get all consumers associated with this socket
@@ -863,9 +1038,12 @@ module.exports = async function (io) {
 
       // Leave room and clean up peer
       if (peers.get(socket.id)) {
+        const parsedPeers = await getPeers();
+        const peers = new Map(Object.entries(parsedPeers));
+
         const roomName = peers.get(socket.id).roomName;
         socket.leave(roomName);
-        peers.delete(socket.id);
+        deleteFromPeers(socket.id);
       }
     });
   });
