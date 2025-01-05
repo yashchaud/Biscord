@@ -5,6 +5,9 @@ var { Server } = require("socket.io");
 var Socketsetup = require("./socket");
 const fs = require("fs");
 const cors = require("cors");
+const dotenv = require('dotenv');
+
+dotenv.config();
 
 const ports = 3001;
 
@@ -12,6 +15,7 @@ var port = normalizePort(ports || "3004");
 const corsOptions = {
   origin: [
     "http://localhost:3000",
+    "http://localhost:5173",
    ], // Specify the origin of your frontend application
   credentials: true, // This allows cookies and credentials to be included in the requests
 };
@@ -35,7 +39,8 @@ server.on("listening", onListening);
 const io = new Server(server, {
   cors: {
     origin: [
-      "http://localhost:3000"
+      "http://localhost:3000",
+      "http://localhost:5173",
      ],
     credentials: true,
   },

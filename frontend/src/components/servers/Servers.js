@@ -3,6 +3,7 @@ import Nikeguy from "../images/nike-just-do-it (2).png";
 import styled from "styled-components";
 import discordlogo from "../images/Discordlogo.svg";
 import { Link } from "react-router-dom";
+import newimage from "../images/DiscordLogoLong.svg";
 import {
   Tooltip,
   TooltipContent,
@@ -29,12 +30,11 @@ const Servers = ({ value }) => {
                     src={`https://bucket-88dwgz.s3.ap-south-1.amazonaws.com/bucket-88dwgz/${value.Serverpic}`}
                     onError={(e) => {
                       e.onerror = null;
-                      e.target.src =
-                        "https://bucket-88dwgz.s3.ap-south-1.amazonaws.com/discoddefault.jpg";
+                      e.target.src = newimage;
                      }}
                   />
                 ) : (
-                  <img src="https://bucket-88dwgz.s3.ap-south-1.amazonaws.com/discoddefault.jpg" />
+                  <img src={newimage} />
                 )}
               </Cover>
             </Link>

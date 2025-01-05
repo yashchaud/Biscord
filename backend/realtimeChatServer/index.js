@@ -38,6 +38,7 @@ const io = new Server(server, {
     origin: [
       "https://localhost:3001",
       "http://localhost:3000",
+      "http://localhost:5173",
     ],
     credentials: true,
   },

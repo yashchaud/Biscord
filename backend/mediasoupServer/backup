@@ -5,202 +5,14 @@ const os = require("os");
 const promClient = require("prom-client");
 const axios = require("axios");
 var pidusage = require("pidusage");
+const { createRoom, getTransport, addConsumer, addTransport, addProducer, informConsumers } = require("./utils/Utils");
+const { pipeProducerToTargetRouter } = require("./modules/PipeHelper");
 
 const {
   createWorker,
   createWebRtcTransport,
   pipeProducersBetweenRouters,
 } = require("./LogicalFunctions/Basicfunctions");
-
-const mediaCodecs = [
-  {
-    kind: "audio",
-    mimeType: "audio/opus",
-    clockRate: 48000,
-    channels: 2,
-  },
-  {
-    kind: "video",
-    mimeType: "video/VP8",
-    clockRate: 90000,
-    parameters: {
-      "x-google-start-bitrate": 1000,
-    },
-  },
-];
-
-// Optimized data structures for O(1) lookups
-const producersByRoom = new Map(); // roomName -> Set of producer IDs
-const consumersByRoom = new Map(); // roomName -> Set of consumer IDs
-const transportsByPeer = new Map(); // socketId -> Set of transport IDs
-const producersByPeer = new Map(); // socketId -> Set of producer IDs
-const consumersByPeer = new Map(); // socketId -> Set of consumer IDs
-
-// Worker load tracking
-const workerLoads = new Map();
-
-// Get least loaded worker
-function getLeastLoadedWorker() {
-  let minLoad = Infinity;
-  let selectedWorker = null;
-  
-  for (const [index, workerData] of workermap.entries()) {
-    const load = workerLoads.get(index) || 0;
-    if (load < minLoad) {
-      minLoad = load;
-      selectedWorker = workerData;
-    }
-  }
-  
-  return selectedWorker;
-}
-
-// Update worker load
-function updateWorkerLoad(workerIndex, connections, cpuUsage) {
-  const load = (connections * 0.7) + (cpuUsage * 0.3); // Weight based on connections and CPU
-  workerLoads.set(workerIndex, load);
-  metrics.workerLoad.labels(workerIndex).set(load);
-}
-
-// Resource cleanup helper
-async function cleanupResources(socketId) {
-  try {
-    // Clean up producers
-    const userProducers = producers.filter(p => p.socketId === socketId);
-    for (const producer of userProducers) {
-      try {
-        if (producer.producer && !producer.producer.closed) {
-          producer.producer.close();
-        }
-      } catch (error) {
-        console.error(`Error closing producer:`, error);
-      }
-    }
-    producers = producers.filter(p => p.socketId !== socketId);
-    producersByPeer.delete(socketId);
-
-    // Clean up consumers
-    const userConsumers = consumers.filter(c => c.socketId === socketId);
-    for (const consumer of userConsumers) {
-      try {
-        if (consumer.consumer && !consumer.consumer.closed) {
-          consumer.consumer.close();
-        }
-      } catch (error) {
-        console.error(`Error closing consumer:`, error);
-      }
-    }
-    consumers = consumers.filter(c => c.socketId !== socketId);
-    consumersByPeer.delete(socketId);
-
-    // Clean up transports
-    const userTransports = Array.from(transports.values()).filter(t => t.socketId === socketId);
-    for (const transport of userTransports) {
-      try {
-        if (transport.transport && !transport.transport.closed) {
-          await transport.transport.close();
-        }
-      } catch (error) {
-        console.error(`Error closing transport:`, error);
-      }
-    }
-    
-    // Remove from maps
-    for (const [key, value] of transports.entries()) {
-      if (value.socketId === socketId) {
-        transports.delete(key);
-      }
-    }
-    transportsByPeer.delete(socketId);
-
-    // Clean up peer
-    const peer = peers.get(socketId);
-    if (peer) {
-      const roomName = peer.roomName;
-      const room = rooms.get(roomName);
-      
-      if (room) {
-        room.peers.delete(socketId);
-        // Clean up room if empty
-        if (room.peers.size === 0) {
-          rooms.delete(roomName);
-          producersByRoom.delete(roomName);
-          consumersByRoom.delete(roomName);
-        }
-      }
-      
-      peers.delete(socketId);
-    }
-
-    // Clean up router mappings
-    participantRouterMap.delete(socketId);
-
-    console.log(`Cleaned up all resources for socket ${socketId}`);
-  } catch (error) {
-    console.error(`Error in cleanup for socket ${socketId}:`, error);
-  }
-}
-
-// Retry mechanism for transport creation
-async function createTransportWithRetry(router, retries = 3) {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      return await createWebRtcTransport(router);
-    } catch (error) {
-      console.error(`Failed to create transport, attempt ${attempt}:`, error);
-      if (attempt === retries) throw error;
-      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-    }
-  }
-}
-
-// Batch operations helper
-async function batchPipeProducers(producerIds, sourceRouter, targetRouter) {
-  const pipeOperations = producerIds.map(id => 
-    pipeProducersBetweenRouters({
-      producerIds: id,
-      sourceRouter,
-      targetRouter,
-      alreadyPipedProducersforcheck,
-    })
-  );
-  
-  try {
-    const results = await Promise.all(pipeOperations);
-    return results.filter(result => result && result.pipeConsumer && result.pipeProducer);
-  } catch (error) {
-    console.error('Error in batch pipe operation:', error);
-    return [];
-  }
-}
-
-// Initialize Prometheus metrics
-const metrics = {
-  cpuUsage: new promClient.Gauge({
-    name: "mediasoup_worker_cpu_usage",
-    help: "CPU usage of mediasoup workers",
-    labelNames: ["worker_id"],
-  }),
-  memoryUsage: new promClient.Gauge({
-    name: "mediasoup_worker_memory_usage",
-    help: "Memory usage of mediasoup workers in MB",
-    labelNames: ["worker_id"],
-  }),
-  transportBandwidth: new promClient.Gauge({
-    name: "mediasoup_transport_bandwidth",
-    help: "Bandwidth usage of WebRTC transports in MB",
-    labelNames: ["transport_id", "direction"],
-  }),
-  activeUsers: new promClient.Gauge({
-    name: "mediasoup_active_users",
-    help: "Number of active users in the system",
-  }),
-  workerLoad: new promClient.Gauge({
-    name: "mediasoup_worker_load",
-    help: "Current load/score of each worker",
-    labelNames: ["worker_id"],
-  }),
-};
 
 module.exports = async function (io) {
   const roomQueue = new AwaitQueue();
@@ -221,76 +33,60 @@ module.exports = async function (io) {
   const participantRouterMap = new Map();
   const producerRouterMap = new Map();
   let Trakpiped = new Map();
+  const mediaCodecs = [
+    {
+      kind: "audio",
+      mimeType: "audio/opus",
+      clockRate: 48000,
+      channels: 2,
+    },
+    {
+      kind: "video",
+      mimeType: "video/VP8",
+      clockRate: 90000,
+      parameters: {
+        "x-google-start-bitrate": 1000,
+      },
+    },
+  ];
+  // Initialize Prometheus metrics
+  const metrics = {
+    cpuUsage: new promClient.Gauge({
+      name: "mediasoup_worker_cpu_usage",
+      help: "CPU usage of mediasoup workers",
+      labelNames: ["worker_id"],
+    }),
+    memoryUsage: new promClient.Gauge({
+      name: "mediasoup_worker_memory_usage",
+      help: "Memory usage of mediasoup workers in MB",
+      labelNames: ["worker_id"],
+    }),
+    transportBandwidth: new promClient.Gauge({
+      name: "mediasoup_transport_bandwidth",
+      help: "Bandwidth usage of WebRTC transports in MB",
+      labelNames: ["transport_id", "direction"],
+    }),
+    activeUsers: new promClient.Gauge({
+      name: "mediasoup_active_users",
+      help: "Number of active users in the system",
+    }),
+  };
 
-  async function createWorkers() {
-    const numCores = os.cpus().length;
-    const workerPromises = [];
-
-    for (let i = 0; i < numCores; i++) {
-      workerPromises.push(createWorkerWithRetry(i));
-    }
-
-    await Promise.all(workerPromises);
-    console.log(`Created ${numCores} workers successfully`);
-  }
-
-  async function createWorkerWithRetry(index, retries = 3) {
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        const worker = await mediasoup.createWorker({
-          logLevel: "debug",
-          logTags: ["rtp", "srtp", "rtcp"],
-          rtcMinPort: 20000 + index * 100,
-          rtcMaxPort: 20100 + index * 100,
-        });
-
-        // Worker health monitoring
-        worker.on("died", async () => {
-          console.error(`mediasoup worker ${worker.pid} died unexpectedly`);
-          workermap.delete(index);
-          workerLoads.delete(index);
-          
-          // Attempt to recover the worker
-          try {
-            await createWorkerWithRetry(index);
-            console.log(`Successfully recovered worker ${index}`);
-          } catch (error) {
-            console.error(`Failed to recover worker ${index}:`, error);
-          }
-        });
-
-        const router = await worker.createRouter({ mediaCodecs });
-        workermap.set(index, { worker, router, connections: 0 });
-        workerLoads.set(index, 0);
-        
-        console.log(`Worker ${index} created with PID: ${worker.pid}`);
-        return { worker, router };
-      } catch (error) {
-        console.error(`Failed to create worker ${index}, attempt ${attempt}:`, error);
-        if (attempt === retries) throw error;
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-      }
-    }
-  }
-
-  // Monitor worker health and performance
   setInterval(async () => {
     try {
       // CPU and Memory Usage monitoring
       for (const [workerIndex, workerData] of workermap.entries()) {
         const { worker } = workerData;
         const usage = await pidusage(worker.pid);
-        
-        // Update metrics
+
+        // Update Prometheus metrics
         metrics.cpuUsage.labels(worker.pid).set(usage.cpu);
         metrics.memoryUsage.labels(worker.pid).set(usage.memory / 1024 / 1024);
-        
-        // Update worker load
-        const connections = workerData.connections || 0;
-        updateWorkerLoad(workerIndex, connections, usage.cpu);
-        
+
         console.log(
-          `Worker ${workerIndex} - PID: ${worker.pid}, CPU: ${usage.cpu}%, Memory: ${usage.memory / 1024 / 1024} MB, Load: ${workerLoads.get(workerIndex)}`
+          `Worker ${workerIndex} - PID: ${worker.pid}, CPU: ${
+            usage.cpu
+          }%, Memory: ${usage.memory / 1024 / 1024} MB`
         );
       }
 
@@ -303,6 +99,7 @@ module.exports = async function (io) {
             const bytesSent = stat.bytesSent / 1024 / 1024;
             const bytesReceived = stat.bytesReceived / 1024 / 1024;
 
+            // Update Prometheus metrics
             metrics.transportBandwidth
               .labels(transportId, "sent")
               .set(bytesSent);
@@ -320,9 +117,39 @@ module.exports = async function (io) {
       // Update active users metric
       metrics.activeUsers.set(peers.size);
     } catch (error) {
-      console.error("Error in worker monitoring:", error);
+      console.error("Error in resource monitoring:", error);
     }
-  }, 5000);
+  }, 5000); // Every 5 seconds
+
+  
+  async function createWorkers() {
+    const numCores = os.cpus().length;
+
+    for (let i = 0; i < numCores; i++) {
+      const worker = await mediasoup.createWorker({
+        logLevel: "debug",
+        logTags: ["rtp", "srtp", "rtcp"],
+        rtcMinPort: 20000 + i * 100, // Adjust port range for each worker
+        rtcMaxPort: 20100 + i * 100,
+      });
+
+      // Listen for worker death.
+      worker.on("died", () => {
+        console.error(`mediasoup worker ${worker.pid} has died`);
+        setTimeout(() => process.exit(1), 2000);
+      });
+
+      // After worker creation, create a router for this worker.
+      const router = await worker.createRouter({ mediaCodecs });
+
+      // Initialize the worker's load to 0, store the worker and its router.
+      workermap.set(i, { worker, router });
+      ChangeRouterindex(0);
+      console.log(
+        `Worker created with PID: ${worker.pid}, and its router initialized.`
+      );
+    }
+  }
 
   await createWorkers();
   function ChangeRouterindex(index) {
@@ -333,24 +160,7 @@ module.exports = async function (io) {
     return Currentindex;
   }
 
-  const createRoom = async (roomName, socketId, i) => {
-    return roomQueue.push(async () => {
-      let room = rooms.get(roomName);
-
-      let peers = [];
-      if (!room) {
-        const router = await workermap.get(i).router;
-        room = { router, peers: new Set([socketId]) };
-        rooms.set(roomName, room);
-      } else {
-        room.peers.add(socketId);
-      }
-
-      console.log(`This is Room Router ${room.router} ${rooms}`);
-
-      return room.router;
-    });
-  };
+ 
   function getSourceRouterForProducer(producerId) {
     const routerIndex = producerRouterMap.get(producerId);
     if (routerIndex !== undefined) {
@@ -408,260 +218,47 @@ module.exports = async function (io) {
     }
   }
 
-  // Now, pipe the new participant's producer to all other routers
+ 
 
-  const getTransport = (socketId) => {
-    for (let [transportId, transportData] of transports.entries()) {
-      if (transportData.socketId === socketId && !transportData.consumer) {
-        return transportData.transport;
-      }
-    }
-    console.error(`Transport not found for socket ID: ${socketId}`);
-    return null;
-  };
-
-  const informConsumers = (roomName, socketId, id, socket) => {
-    console.log(`just joined, id ${id} ${roomName}, ${socketId}`);
-
-    producers.forEach((producerData) => {
-      if (
-        producerData.socketId !== socketId &&
-        producerData.roomName === roomName
-      ) {
-        if (peers.has(producerData.socketId)) {
-          const producerSocket = peers.get(producerData.socketId).socket;
-          console.log("Inform", producerData.producer.id, id);
-          socket.broadcast.to(roomName).emit("new-producer", {
-            producerId: id,
-            targetRouterindex: 0,
-          });
-
-          pipeProducer(id, producerSocket, socket);
-        } else {
-          console.log(`Producer not found in peers: ${producerData.socketId}`);
-        }
-      }
-    });
-  };
+ 
   const pipeProducer = async (producerId, producerSocket, socket) => {
-    if (alreadyPipedProducersforcheck.has(producerId)) return;
     try {
-      let targetRouterIndex;
-      if (Currentindex === 1) {
-        const sourceRouterIndex = producerRouterMap.get(producerId);
-        const sourceRouter = workermap.get(sourceRouterIndex).router;
-
-        const targetRouter = workermap.get(0).router;
-        if (sourceRouter === targetRouter) return;
-        if (!alreadyPipedProducersforcheck.has(producerId)) {
-          const { pipeConsumer, pipeProducer } =
-            await pipeProducersBetweenRouters({
-              producerIds: producerId,
-              sourceRouter,
-              targetRouter,
-              alreadyPipedProducersforcheck,
-              producerSocket,
-            });
-          await pipeProducer.on("transportclose", () => {
-            console.log("transport for this producer closed ");
-            pipeProducer.close();
-          });
-
-          if (pipeConsumer === null || pipeConsumer === undefined) {
-            return;
-          }
-          console.log("event is being triggered", pipeConsumer);
-
-          await io.to(socket.roomName).emit("new-producer-piped", {
-            producerId: pipeConsumer.id,
-            targetRouterindex: Currentindex,
-          });
-          Trakpiped.set(pipeConsumer, targetRouter);
-
-          alreadyPipedProducer.add(pipeConsumer.id);
-        }
-        return;
-      } else {
-        targetRouterIndex = 1;
-      }
-      console.log("in pipeProducer", producerId);
       const sourceRouterIndex = producerRouterMap.get(producerId);
       if (sourceRouterIndex === undefined) {
         console.error(`Producer ${producerId} not associated with any router.`);
         return;
       }
-      if (sourceRouterIndex === targetRouterIndex) {
-        console.log(`Producer ${producerId} already in the target router.`);
-        return;
-      }
-      const sourceRouter = workermap.get(sourceRouterIndex).router;
-      const targetRouter = workermap.get(targetRouterIndex).router;
-
-      const { pipeConsumer, pipeProducer } = await pipeProducersBetweenRouters({
-        producerIds: producerId,
-        sourceRouter,
-        targetRouter,
+  
+      // Decide your targetRouterIndex (same logic you had before)
+      // e.g., if Currentindex is 1 => target is 0; else => target is 1
+      const targetRouterIndex = (Currentindex === 1) ? 0 : 1;
+  
+      // Now call your new helper
+      const success = await pipeProducerToTargetRouter({
+        producerId,
+        workermap,
+        producerRouterMap,
         alreadyPipedProducersforcheck,
+        alreadyPipedProducer,
+        Trakpiped,
         producerSocket,
+        io,
+        sourceRouterIndex,
+        targetRouterIndex,
+        currentRouterIndex: Currentindex,
       });
-
-      await pipeProducer.on("transportclose", () => {
-        console.log("transport for this producer closed ");
-        pipeProducer.close();
-      });
-
-      if (pipeConsumer === null || pipeConsumer === undefined) {
-        return;
-      }
-      console.log("event is being triggered", pipeConsumer);
-
-      await producerSocket.emit("new-producer-piped", {
-        producerId: pipeConsumer.id,
-        targetRouterindex: Currentindex,
-      });
-      Trakpiped.set(pipeConsumer, targetRouter);
-
-      alreadyPipedProducer.add(pipeConsumer.id);
-
-      Roomfull = true;
+  
+      Roomfull = success; // or however you want to track success
     } catch (error) {
-      console.error("Error in processing:", error.message);
+      console.error("Error in pipeProducer:", error);
       Roomfull = false;
     }
   };
+  
 
   io.on("connection", (socket) => {
     console.log(`peer joined ${socket.id}`);
-    
-    // Set an inactivity timeout
-    const inactivityTimeout = setTimeout(() => {
-      console.log(`Socket ${socket.id} inactive for too long, disconnecting`);
-      socket.disconnect(true);
-    }, 1800000); // 30 minutes
-
-    socket.on("activity", () => {
-      clearTimeout(inactivityTimeout);
-    });
-
-    socket.on("error", (error) => {
-      console.error(`Socket error for ${socket.id}:`, error);
-      cleanupResources(socket.id);
-    });
-
-    socket.on("disconnect", async () => {
-      console.log(`peer disconnected ${socket.id}`);
-      clearTimeout(inactivityTimeout);
-      
-      const consumerIds = consumers
-        .filter((c) => c.socketId === socket.id)
-        .map((c) => c.consumer.id);
-
-      socket.broadcast.emit("user-disconnected", {
-        consumerIds: consumerIds || [],
-      });
-
-      await cleanupResources(socket.id);
-    });
-
-    socket.on("joinRoom", async ({ roomName }, callback) => {
-      try {
-        if (peers.has(socket.id)) {
-          console.warn(`Socket ${socket.id} is already in a room.`);
-          return callback({ error: "You are already in a room." });
-        }
-
-        const leastLoadedWorker = getLeastLoadedWorker();
-        if (!leastLoadedWorker) {
-          throw new Error("No available workers");
-        }
-
-        const router = leastLoadedWorker.router;
-        const routerIndex = Array.from(workermap.entries())
-          .find(([_, data]) => data.router === router)?.[0];
-
-        if (routerIndex === undefined) {
-          throw new Error("Could not find router index");
-        }
-
-        // Create room and add peer atomically
-        await roomQueue.push(async () => {
-          let room = rooms.get(roomName);
-          if (!room) {
-            room = { router, peers: new Set([socket.id]) };
-            rooms.set(roomName, room);
-          } else {
-            room.peers.add(socket.id);
-          }
-        });
-
-        // Initialize peer data structures
-        peers.set(socket.id, {
-          socket,
-          roomName,
-          transports: [],
-          producers: [],
-          consumers: [],
-          peerDetails: { name: "", isAdmin: false },
-        });
-
-        // Join socket room
-        socket.roomName = roomName;
-        await socket.join(roomName);
-
-        // Get existing producers in room
-        const roomProducers = Array.from(producersByRoom.get(roomName) || []);
-        const producerStates = producers
-          .filter(p => roomProducers.includes(p.producer.id))
-          .map(p => ({
-            producerId: p.producer.id,
-            isPaused: p.producer.paused,
-          }));
-
-        // Update worker load
-        const workerData = workermap.get(routerIndex);
-        workerData.connections = (workerData.connections || 0) + 1;
-        workermap.set(routerIndex, workerData);
-        updateWorkerLoad(routerIndex, workerData.connections, 0);
-
-        callback({
-          routerRtpCapabilities: router.rtpCapabilities,
-          producerStates,
-        });
-      } catch (error) {
-        console.error(`Error joining room:`, error);
-        callback({ error: "Failed to join room" });
-      }
-    });
-
-    socket.on("createWebRtcTransport", async ({ consumer }, callback) => {
-      try {
-        const peer = peers.get(socket.id);
-        if (!peer) {
-          throw new Error(`No peer found for socket ID: ${socket.id}`);
-        }
-
-        const leastLoadedWorker = getLeastLoadedWorker();
-        if (!leastLoadedWorker) {
-          throw new Error("No available workers");
-        }
-
-        const transport = await createTransportWithRetry(leastLoadedWorker.router);
-        
-        callback({
-          params: {
-            id: transport.id,
-            iceParameters: transport.iceParameters,
-            iceCandidates: transport.iceCandidates,
-            dtlsParameters: transport.dtlsParameters,
-          },
-        });
-
-        await addTransport(transport, peer.roomName, consumer);
-      } catch (error) {
-        console.error(`Error creating WebRTC transport:`, error);
-        callback({ error: "Failed to create transport" });
-      }
-    });
+    socket.emit("connection-success", { socketID: socket.id });
 
     const removeItems = (items, socketId, type) => {
       if (!Array.isArray(items)) {
@@ -680,49 +277,56 @@ module.exports = async function (io) {
       return items;
     };
 
-    const addTransport = async (transport, roomName, consumer) => {
-      transports.set(transport.id, {
-        socketId: socket.id,
-        transport,
+  
+   
+ 
+
+    socket.on("joinRoom", async ({ roomName }, callback) => {
+      if (peers.has(socket.id)) {
+        console.warn(`Socket ${socket.id} is already in a room.`);
+        return callback({ error: "You are already in a room." });
+      }
+
+      let router1;
+      let router2;
+      let rtpCapabilities;
+
+      console.log("Status of room", Roomfull);
+      router1 = await createRoom(roomName, socket.id, 0, roomQueue, rooms, workermap);
+      router2 = await createRoom(roomName, socket.id, 1, roomQueue, rooms, workermap); 
+      const Routers = [router1.rtpCapabilities, router2.rtpCapabilities];
+      participantRouterMap.set(socket.id, Currentindex);
+
+      if (Remoteindex > 10) {
+        ChangeRouterindex(1);
+      }
+      peers.set(socket.id, {
+        socket,
         roomName,
-        consumer,
+        transports: [],
+        producers: [],
+        consumers: [],
+        peerDetails: {
+          name: "",
+          isAdmin: false,
+        },
       });
-
-      let peer = peers.get(socket.id);
-
-      await peer?.transports?.push(transport.id);
-      peers.set(socket.id, peer);
-    };
-    const addProducer = async (producer, roomName, kind) => {
-      if (producers.some((p) => p.producer.id === producer.id)) {
-        console.warn(`Producer ${producer.id} already exists.`);
-        return;
-      }
-
-      producers = [
-        ...producers,
-        { socketId: socket.id, producer, roomName, kind },
-      ];
-      console.log(producer.id);
-
-      let peer = peers.get(socket.id);
-      peer.producers.push(producer.id);
-      peers.set(socket.id, peer);
-    };
-
-    const addConsumer = (consumer, roomName) => {
-      if (consumers.some((c) => c.consumer.id === consumer.id)) {
-        console.warn(`Consumer ${consumer.id} already exists.`);
-        return;
-      }
-
-      consumers = [...consumers, { socketId: socket.id, consumer, roomName }];
-
-      let peer = peers.get(socket.id);
-      peer.consumers.push(consumer.id);
-      peers.set(socket.id, peer);
-    };
-
+      socket.roomName = roomName; // Add room name to the socket
+      socket.join(roomName); // Join the socket to the room
+      let rpa = router1.rtpCapabilities;
+      Remoteindex += 1;
+      const producerStates = (Array.isArray(producers) ? producers : [])
+        .filter((producerData) => producerData.roomName === roomName)
+        .map((producerData) => ({
+          producerId: producerData.producer.id,
+          isPaused: producerData.producer.paused,
+        }));
+      callback({
+        Routers,
+        Currentindex,
+        producerStates,
+      });
+    });
     socket.on("getRouterindex", async ({ producerid }, callback) => {
       console.log(producerid);
       callback({
@@ -733,8 +337,49 @@ module.exports = async function (io) {
     socket.on("transport-connect", ({ dtlsParameters }) => {
       console.log("DTLS PARAMS... ", { dtlsParameters });
 
-      getTransport(socket.id).connect({ dtlsParameters });
+      getTransport(socket.id, transports).connect({ dtlsParameters });
     });
+
+    socket.on(
+      "createWebRtcTransport",
+      async ({ consumer, RouterId }, callback) => {
+        const peer = peers.get(socket.id);
+        if (!peer) {
+          console.error(`No peer found for socket ID: ${socket.id}`);
+          return; // or handle this case as appropriate for your application
+        }
+        const roomName = peer.roomName;
+
+        // router = rooms.get(roomName).router;
+
+        let router = workermap.get(Currentindex).router;
+
+        await createWebRtcTransport(router)
+          .then(
+            (transport) => {
+              callback({
+                params: {
+                  id: transport.id,
+                  iceParameters: transport.iceParameters,
+                  iceCandidates: transport.iceCandidates,
+                  dtlsParameters: transport.dtlsParameters,
+                },
+              });
+
+              // add transport to Peer's properties
+              addTransport(transport, roomName, consumer, transports, peers, socket.id);
+            },
+            (error) => {
+              console.log(error);
+            }
+          )
+          .then(
+            console.log(
+              `Transport Kind is ${consumer ? "Consumer" : "producer"}`
+            )
+          );
+      }
+    );
 
     socket.on("getProducers", async (callback) => {
       const roomName = peers.get(socket.id)?.roomName;
@@ -770,7 +415,7 @@ module.exports = async function (io) {
             let producer;
 
             if (kind === "video") {
-              producer = await getTransport(socket.id).produce({
+              producer = await getTransport(socket.id, transports).produce({
                 kind,
                 rtpParameters,
                 encodings: [
@@ -783,7 +428,7 @@ module.exports = async function (io) {
                 },
               });
             } else {
-              producer = await getTransport(socket.id).produce({
+              producer = await getTransport(socket.id, transports).produce({
                 kind,
                 rtpParameters,
               });
@@ -793,15 +438,20 @@ module.exports = async function (io) {
 
             const roomName = peers.get(socket.id).roomName;
 
-            const transport = getTransport(socket.id);
+            const transport = getTransport(socket.id, transports);
             if (!transport) {
               console.error("Transport not found.");
               return;
             }
 
-            addProducer(producer, roomName, kind);
+            // Initialize producers as empty array if it's not already an array
+            if (!Array.isArray(producers)) {
+              producers = [];
+            }
 
-            informConsumers(roomName, socket.id, producer.id, socket);
+            producers = await addProducer(producer, roomName, kind, producers, peers, socket.id);
+
+            informConsumers(roomName, socket.id, producer.id, socket, producers, peers);
 
             console.log("Producer ID: ", producer.id, producer.kind);
 
@@ -810,8 +460,7 @@ module.exports = async function (io) {
               producer.close();
             });
 
-            console.log(producers.length);
-
+ 
             callback({
               id: producer.id,
               producersExist: producers.length > 1 ? true : false,
@@ -1003,7 +652,7 @@ module.exports = async function (io) {
               );
             });
 
-            addConsumer(consumer, roomName);
+            consumers = addConsumer(consumer, roomName, socket.id, consumers, peers);
 
             const params = {
               id: consumer.id,
@@ -1025,5 +674,36 @@ module.exports = async function (io) {
         }
       }
     );
+
+    socket.on("disconnect", () => {
+      console.log("peer disconnected");
+      const consumerIds = consumers
+        .filter((c) => c.socketId === socket.id)
+        .map((c) => c.consumer.id);
+
+      // Ensure you emit an array, even if it's empty
+      socket.broadcast.emit("user-disconnected", {
+        consumerIds: consumerIds || [],
+      });
+      // io.broadcast.to(socket.roomName).emit("user-disconnected", {
+      //   consumerIds: consumerIds || [],
+      // });
+
+      // io.emit("user-disconnected", socket.id);
+      producers = producers.filter((p) => p.socketId !== socket.id);
+      consumers = consumers.filter((c) => c.socketId !== socket.id);
+      transports = removeItems(transports, socket.id, "transport");
+      consumers
+        .filter((c) => c.socketId === socket.id)
+        .forEach((c) => {
+          c.consumer.close();
+        });
+      console.log(Peerstrack);
+      if (peers.get(socket.id)) {
+        const roomName = peers.get(socket.id).roomName;
+        socket.leave(roomName);
+        peers.delete(socket.id);
+      }
+    });
   });
 };
