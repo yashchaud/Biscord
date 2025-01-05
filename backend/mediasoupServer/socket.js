@@ -811,28 +811,40 @@ module.exports = async function (io) {
 
     socket.on("disconnect", () => {
       console.log("peer disconnected");
-      const consumerIds = consumers
-        .filter((c) => c.socketId === socket.id)
-        .map((c) => c.consumer.id);
+      
+      // Get all consumers associated with this socket
+      const userConsumers = consumers.filter((c) => c.socketId === socket.id);
+      const consumerIds = userConsumers.map((c) => c.consumer.id);
 
-      // Ensure you emit an array, even if it's empty
-      socket.broadcast.emit("user-disconnected", {
+      // Get all producers associated with this socket
+      const userProducers = producers.filter((p) => p.socketId === socket.id);
+      
+      // Notify others about each producer that's being closed
+      userProducers.forEach((producerData) => {
+        socket.broadcast.to(socket.roomName).emit("producer-closed", {
+          remoteProducerId: producerData.producer.id
+        });
+        producerData.producer.close();
+      });
+
+      // Notify about consumer closures
+      socket.broadcast.to(socket.roomName).emit("user-disconnected", {
         consumerIds: consumerIds || [],
       });
-      // io.broadcast.to(socket.roomName).emit("user-disconnected", {
-      //   consumerIds: consumerIds || [],
-      // });
 
-      // io.emit("user-disconnected", socket.id);
+      // Clean up producers
       producers = producers.filter((p) => p.socketId !== socket.id);
+
+      // Clean up consumers
       consumers = consumers.filter((c) => c.socketId !== socket.id);
+      userConsumers.forEach((c) => {
+        c.consumer.close();
+      });
+
+      // Clean up transports
       transports = removeItems(transports, socket.id, "transport");
-      consumers
-        .filter((c) => c.socketId === socket.id)
-        .forEach((c) => {
-          c.consumer.close();
-        });
-      console.log(Peerstrack);
+
+      // Leave room and clean up peer
       if (peers.get(socket.id)) {
         const roomName = peers.get(socket.id).roomName;
         socket.leave(roomName);
